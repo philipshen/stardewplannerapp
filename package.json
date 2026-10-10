@@ -9,6 +9,7 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@shopify/react-native-skia": "2.6.2",
     "expo": "~57.0.27",
+    "expo-asset": "~57.0.19",
     "expo-constants": "~57.0.21",
     "expo-document-picker": "~57.0.3",
     "expo-file-system": "~57.0.7",
@@ -51,7 +52,8 @@
     "gen": "npm run gen:data && npm run gen:art",
     "typecheck": "tsc --noEmit",
     "postinstall": "node scripts/copy-canvaskit.js",
-    "build:web": "expo export --platform web"
+    "build:web": "expo export --platform web",
+    "test": "tsx --test scripts/test-model.ts"
   },
   "private": true
 }

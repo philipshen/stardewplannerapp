@@ -19,6 +19,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { Asset } from 'expo-asset';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, F, shadow } from '../theme';
 import { GLYPH_CELL, GLYPH_NAMES, GLYPH_SHEET, ICON_PAGE_SIZE, ICON_PAGES, WOOD_TEXTURE } from '../data/generated/assets';
@@ -58,6 +59,12 @@ export function Panel({ children, style, inner, tone = 'parchment' }: { children
 }
 
 export function WoodBackground({ children, style }: { children?: ReactNode; style?: StyleProp<ViewStyle> }) {
+  if (Platform.OS === 'web') {
+    // react-native-web does not tile ImageBackground; use a CSS background instead.
+    const uri = typeof WOOD_TEXTURE === 'string' ? WOOD_TEXTURE : Asset.fromModule(WOOD_TEXTURE).uri;
+    const css = { backgroundImage: `url(${uri})`, backgroundRepeat: 'repeat', imageRendering: 'pixelated' } as object;
+    return <View style={[{ flex: 1, backgroundColor: C.wood }, css, style]}>{children}</View>;
+  }
   return (
     <ImageBackground source={WOOD_TEXTURE} resizeMode="repeat" style={[{ flex: 1, backgroundColor: C.wood }, style]}>
       {children}

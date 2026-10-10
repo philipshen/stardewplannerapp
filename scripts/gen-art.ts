@@ -247,7 +247,7 @@ const GS = 12, GSCALE = 4;
   for (let y = 0; y < 32; y++) {
     const plank = Math.floor(y / 8);
     const base = ramp(['#6b3d22', '#73422a', '#663a20', '#70402a'][plank]);
-    for (let x = 0; x < 32; x++) t.px(x, y, y % 8 === 7 ? base[0] : (x + plank * 11) % 32 === 0 ? base[1] : rng.chance(0.06) ? base[1] : rng.chance(0.04) ? base[3] : base[2]);
+    for (let x = 0; x < 32; x++) t.px(x, y, y % 8 === 7 ? base[0] : (x + plank * 11) % 32 === 0 ? base[1] : rng.chance(0.025) ? base[1] : rng.chance(0.015) ? base[3] : base[2]);
   }
   const big = new Img(64, 64);
   big.blitScaled(t, 0, 0, 2);

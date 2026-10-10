@@ -5,7 +5,8 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { ITEM_BY_ID, Item, SPRITES } from '../data/items';
-import { MAP_BY_ID, mapImage, terrainAt } from '../data/maps';
+import { MAP_BY_ID, terrainAt } from '../data/maps';
+import { mapImage } from '../data/mapImages';
 import { WORLD_SHEETS } from '../data/generated/assets';
 import { useEditor } from '../store/editor';
 import {
@@ -103,18 +104,18 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
   const data = useMemo(() => (sheet ? buildDrawData(plan, occ, moving) : null), [sheet, plan.ground, plan.objects, plan.season, occ, moving]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const gridPath = useMemo(() => {
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     for (let x = 0; x <= map.w; x++) { p.moveTo(x * TILE, 0); p.lineTo(x * TILE, worldH); }
     for (let y = 0; y <= map.h; y++) { p.moveTo(0, y * TILE); p.lineTo(worldW, y * TILE); }
-    return p;
+    return p.build();
   }, [map, worldW, worldH]);
 
   const blockedPath = useMemo(() => {
     if (!layers.blocked) return null;
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     const probe = ITEM_BY_ID['chest'];
     for (let y = 0; y < map.h; y++) for (let x = 0; x < map.w; x++) if (!terrainOk(probe, map, x, y)) p.addRect(Skia.XYWHRect(x * TILE, y * TILE, TILE, TILE));
-    return p;
+    return p.build();
   }, [layers.blocked, map]);
 
   const coverPaths = useMemo(() => {
@@ -123,9 +124,9 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
     const cov = coverage(plan.objects, groups);
     const colors: Record<string, string> = { water: RANGE_STYLE.spr1.color, crow: RANGE_STYLE.scare8.color, junimo: RANGE_STYLE.junimo.color, bee: RANGE_STYLE.bee.color, log: RANGE_STYLE.log.color };
     return Object.entries(cov).filter(([, s]) => s.size).map(([g, s]) => {
-      const p = Skia.Path.Make();
+      const p = Skia.PathBuilder.Make();
       for (const k of s) { const [x, y] = k.split(',').map(Number); p.addRect(Skia.XYWHRect(x * TILE, y * TILE, TILE, TILE)); }
-      return { p, color: colors[g] };
+      return { p: p.build(), color: colors[g] };
     });
   }, [layers, plan.objects]);
 
@@ -133,21 +134,21 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
     if (!layers.warnings) return null;
     const bad = blockedTrees(plan.objects, occ);
     if (!bad.size) return null;
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     for (const o of plan.objects) if (bad.has(o.u)) p.addRect(Skia.XYWHRect(o.x * TILE - TILE, o.y * TILE - TILE, TILE * 3, TILE * 3));
-    return p;
+    return p.build();
   }, [layers.warnings, plan.objects, occ]);
 
   const selPath = useMemo(() => {
     if (!selection.size) return null;
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     const dx = preview?.kind === 'move' ? preview.dx : 0, dy = preview?.kind === 'move' ? preview.dy : 0;
     for (const o of plan.objects) {
       if (!selection.has(o.u)) continue;
       const it = ITEM_BY_ID[o.id];
       if (it) p.addRect(Skia.XYWHRect((o.x + dx) * TILE, (o.y + dy) * TILE, it.w * TILE, it.h * TILE));
     }
-    return p;
+    return p.build();
   }, [selection, plan.objects, preview]);
 
   /** Coverage of the selected/ghosted item, always shown. */
@@ -160,9 +161,9 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
       if (o && it?.range) src = { it, x: o.x + (preview?.kind === 'move' ? preview.dx : 0), y: o.y + (preview?.kind === 'move' ? preview.dy : 0) };
     }
     if (!src) return null;
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     for (const [dx, dy] of offsetsFor(src.it.range as RangeKind)) p.addRect(Skia.XYWHRect((src.x + dx) * TILE, (src.y + dy) * TILE, TILE, TILE));
-    return { p, color: RANGE_STYLE[src.it.range as RangeKind].color.replace(/[\d.]+\)$/, '0.55)') };
+    return { p: p.build(), color: RANGE_STYLE[src.it.range as RangeKind].color.replace(/[\d.]+\)$/, '0.55)') };
   }, [preview, selection, plan.objects]);
 
   // Ghost / move preview sprites
@@ -475,7 +476,7 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
   // ---------------------------------------------------------------- preview shapes
   const rectPreview = useMemo(() => {
     if (preview?.kind !== 'rect' && preview?.kind !== 'marquee') return null;
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     if (preview.kind === 'rect' && preview.item && !preview.erase) {
       for (const [x, y] of stampPositions(preview.item, preview.x0, preview.y0, preview.x1, preview.y1, preview.outline)) p.addRect(Skia.XYWHRect(x * TILE, y * TILE, preview.item.w * TILE, preview.item.h * TILE));
     } else if (preview.kind === 'rect' && preview.outline) {
@@ -486,7 +487,7 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
     }
     const color = preview.kind === 'marquee' ? 'rgba(80,160,255,0.25)' : preview.erase ? 'rgba(220,60,40,0.35)' : 'rgba(120,230,90,0.35)';
     const stroke = preview.kind === 'marquee' ? '#3a72c8' : preview.erase ? '#c83a3a' : '#3a7a24';
-    return { p, color, stroke };
+    return { p: p.build(), color, stroke };
   }, [preview]);
 
   const ghostOk = preview?.kind === 'ghost' ? preview.ok : preview?.kind === 'move' ? preview.ok : true;

@@ -1,5 +1,4 @@
 import rawMaps from './generated/maps.json';
-import { MAP_IMAGES } from './generated/assets';
 
 export type MapInfo = {
   id: string;
@@ -15,14 +14,6 @@ export type MapInfo = {
 
 export const MAPS = rawMaps as MapInfo[];
 export const MAP_BY_ID: Record<string, MapInfo> = Object.fromEntries(MAPS.map((m) => [m.id, m]));
-
-export function mapImage(id: string, season: string) {
-  const m = MAP_IMAGES[id];
-  return m?.[season] ?? m?.spring;
-}
-export function mapThumb(id: string) {
-  return MAP_IMAGES[id]?.thumb;
-}
 
 /** Terrain characters (see scripts/art/maps.ts CODE_CHARS). */
 export const TERRAIN = {
