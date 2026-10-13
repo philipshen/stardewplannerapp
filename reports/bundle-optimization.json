@@ -1,0 +1,28 @@
+{
+  "previousAssetBytes": 207557279,
+  "optimizedAssetBytes": 127092794,
+  "savedAssetBytes": 80464485,
+  "mapOptimization": {
+    "maps": 63,
+    "beforeBytes": 81100646,
+    "afterBytes": 32819868,
+    "savedBytes": 48280778,
+    "pixels": "identical"
+  },
+  "musicOptimization": {
+    "tracks": 69,
+    "reencoded": 69,
+    "beforeBytes": 120640620,
+    "afterBytes": 90317513,
+    "savedBytes": 30323107
+  },
+  "validation": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "tests": 37,
+    "iosExport": "passed",
+    "mapRGBA": "identical",
+    "radioTracks": 69
+  },
+  "note": "Asset bytes only. Apple download/install size is not yet measured."
+}

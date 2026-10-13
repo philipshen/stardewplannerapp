@@ -42,3 +42,12 @@ yarn-error.*
 
 # CanvasKit wasm is copied in by `npm install` (scripts/copy-canvaskit.js)
 public/canvaskit.wasm
+
+# browser test artifacts
+.playwright-mcp/
+
+# local scratch files
+.scratch/
+
+# Local release journal (account and device details)
+store/release-status.json

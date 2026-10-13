@@ -1,0 +1,23 @@
+{
+  "reference": "https://stardewplan.com/",
+  "inspectedAt": "2026-10-13",
+  "scope": "Live About feature list, Ambience menu and planner controls; comparison against local implementation. Not a claim of full parity.",
+  "features": [
+    { "feature": "All eight vanilla farms and four seasons", "status": "present" },
+    { "feature": "Ginger Island, Quarry and community mod maps", "status": "partial", "remaining": "Audit other exterior locations and mod map inventory; Bus Stop, Pelican Town and Cindersap Forest are absent." },
+    { "feature": "Single, continuous and rectangle placement", "status": "implemented", "verification": "Lint/typecheck and model tests pass; sustained native drag verification pending." },
+    { "feature": "Selection, group movement, duplicate, erase, undo/redo", "status": "present" },
+    { "feature": "Placement rules and coverage overlays", "status": "present", "remaining": "Compare edge cases with game behavior; no exhaustive parity claim." },
+    { "feature": "Butterflies and birds", "status": "implemented", "verification": "Original critter frames render in web preview; native animation verification pending." },
+    { "feature": "Night lighting, rain, storms, green rain, snow and clouds", "status": "missing" },
+    { "feature": "Water, machine and seasonal debris animations", "status": "missing" },
+    { "feature": "Building interiors linked to one farm save", "status": "missing", "current": "Interior maps exist as separate plans." },
+    { "feature": "Building painting, upgrades and animal doors", "status": "partial", "current": "Upgraded buildings are separate catalog entries; no configuration UI." },
+    { "feature": "Roaming livestock, pets, pet hats and spouse patio", "status": "missing" },
+    { "feature": "Crop growth stages, flower colors, tappers, fish pond stock and machine contents", "status": "missing" },
+    { "feature": "Save import including linked interiors", "status": "partial", "current": "Farm import only." },
+    { "feature": "Local autosave, plan files and image export", "status": "present" },
+    { "feature": "Account sync and shareable hosted links", "status": "missing" },
+    { "feature": "Mobile joystick and resizable item drawer", "status": "missing", "current": "Touch placement, pinch/pan and responsive sheet available." }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "name": "Stardew Planner: Dream Farm",
+  "subtitle": "Stardew Valley's Creative Mode",
+  "shortDescription": "Design your farm with touch controls, seasonal views, and offline saves.",
+  "description": "Make room for your next farm idea. Stardew Planner is a free, unofficial companion for planning your Stardew Valley farm on your phone or tablet.\n\nChoose your farm layout, then arrange crops, buildings, paths, trees, and decorations. Explore seasonal views, check equipment coverage, and try new arrangements with undo and redo.\n\nStart from a blank farm or a sample plan. Save multiple designs on your device, export an image to share, or export a plan file for backups and moving between devices. Import a supported game save to start from your existing farm.\n\nListen to activity and seasonal radio stations as you plan, or add your own music files. A guided tutorial introduces the touch controls, and the gear menu keeps your planning options together.\n\nMade by phil because I wanted to plan my own farm. Completely free: no subscriptions, paid features, or ads.\n\nThis is an unofficial fan-made tool, not affiliated with Stardew Valley or ConcernedApe. Stardew Valley, its artwork, and its soundtrack belong to ConcernedApe.",
+  "keywords": "design,layout,interior,decorate,house,shed,greenhouse,sprinkler,save,import,offline,furniture",
+  "releaseNotes": "Plan farms with touch controls, seasonal views, coverage overlays, local saves, image and plan exports, and activity radio.",
+  "reviewNotes": "No login is required. Tap New farm, choose a layout, and create a farm. The first-use tutorial explains the controls. Tap the gear in the editor for radio, export, display options, and tutorial replay.",
+  "supportContact": "https://stardew-planner-support.vercel.app/",
+  "price": "free",
+  "status": "waiting-for-review",
+  "privacyPolicyUrl": "https://stardew-planner-support.vercel.app/privacy.html",
+  "category": "Utilities",
+  "creativeAssetsDirectory": "store/creative-2026-10/readability-v2",
+  "previousSubmissionId": "c724987d-8ef4-4325-a3a2-dc6547e4a23d",
+  "submissionId": "d06732d9-5710-4be8-89a9-8c58f0d27d4b",
+  "buildNumber": 15
+}

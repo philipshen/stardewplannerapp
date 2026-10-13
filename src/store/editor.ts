@@ -1,22 +1,40 @@
 /** Editing session state for the planner screen (tool, selection, undo history). */
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { Item, ITEM_BY_ID } from '../data/items';
-import { buildOcc, Edit, Occ, Placed, Plan } from '../planner/model';
+import { MAP_BY_ID } from '../data/maps';
+import { buildOcc, Edit, fitToMap, Occ, Placed, Plan } from '../planner/model';
+import { DEFAULT_RECENT, placementPreferences } from './placementPreferences';
 import type { Season } from '../theme';
 
 export type Tool = 'pan' | 'place' | 'erase' | 'select';
-export type Shape = 'brush' | 'rect' | 'outline';
+export type Shape = 'single' | 'brush' | 'rect';
 
 export type Layers = {
+  night: boolean;
+  wildlife: boolean;
   grid: boolean;
   coverage: boolean;
   water: boolean;
   crow: boolean;
   junimo: boolean;
   bee: boolean;
-  blocked: boolean;
+  /** Tint the tiles where buildings may stand. */
+  buildable: boolean;
+  /** Tint the tiles where crops may grow. */
+  tillable: boolean;
+  /** Ignore terrain rules when placing ("Allow placing anywhere"). */
+  anywhere: boolean;
   warnings: boolean;
 };
+
+const PLACEMENT_KEY = 'sdp:placement:v1';
+let pickRevision = 0;
+let placementWrites = Promise.resolve();
+let optionsLoad: Promise<void> | null = null;
+
+const LAYERS_KEY = 'sdp:options:v1';
+const DEFAULT_LAYERS: Layers = { night: false, wildlife: true, grid: true, coverage: true, water: true, crow: true, junimo: true, bee: true, buildable: false, tillable: false, anywhere: false, warnings: true };
 
 type EditorState = {
   plan: Plan | null;
@@ -47,6 +65,9 @@ type EditorState = {
   pick: (it: Item) => void;
   select: (uids: string[]) => void;
   setLayers: (l: Partial<Layers>) => void;
+  loadOptions: () => Promise<void>;
+  /** Switch the plan to another layout. Items outside the new map are removed. */
+  setMap: (map: string) => void;
   setSeason: (s: Season) => void;
   rename: (name: string) => void;
   showToast: (msg: string) => void;
@@ -61,11 +82,11 @@ export const useEditor = create<EditorState>((set, get) => ({
   future: [],
   dirty: 0,
   tool: 'place',
-  shape: 'brush',
+  shape: 'single',
   item: ITEM_BY_ID['crop-parsnip'] ?? null,
-  recent: ['crop-parsnip', 'sprinkler', 'scarecrow', 'wood-fence', 'cobblestone-path', 'keg'],
+  recent: DEFAULT_RECENT,
   selection: new Set(),
-  layers: { grid: true, coverage: true, water: true, crow: true, junimo: true, bee: true, blocked: false, warnings: true },
+  layers: DEFAULT_LAYERS,
   toast: null,
 
   open(plan) {
@@ -114,12 +135,43 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
   setShape(shape) { set({ shape }); },
   pick(it) {
-    const recent = [it.id, ...get().recent.filter((r) => r !== it.id)].slice(0, 12);
-    // Fences default to outline when using an area; floors to filled.
+    // Items already on the hotbar keep their slot.
+    const recent = get().recent.includes(it.id) ? get().recent : [it.id, ...get().recent].slice(0, 12);
+    pickRevision++;
     set({ item: it, recent, tool: 'place' });
+    const saved = JSON.stringify({ itemId: it.id, recent });
+    placementWrites = placementWrites.then(() => AsyncStorage.setItem(PLACEMENT_KEY, saved)).catch(() => {});
   },
   select(uids) { set({ selection: new Set(uids) }); },
-  setLayers(l) { set({ layers: { ...get().layers, ...l } }); },
+  setLayers(l) {
+    const layers = { ...get().layers, ...l };
+    set({ layers });
+    AsyncStorage.setItem(LAYERS_KEY, JSON.stringify(layers)).catch(() => {});
+  },
+  loadOptions() {
+    // Hydrate once; a slow storage read must never overwrite a new user pick.
+    if (optionsLoad) return optionsLoad;
+    const revision = pickRevision;
+    optionsLoad = Promise.all([
+      AsyncStorage.getItem(LAYERS_KEY).then(raw => {
+        if (raw) set({ layers: { ...DEFAULT_LAYERS, ...JSON.parse(raw) } });
+      }).catch(() => {}),
+      AsyncStorage.getItem(PLACEMENT_KEY).then(raw => {
+        if (revision !== pickRevision) return;
+        const saved = placementPreferences(raw ? JSON.parse(raw) : null);
+        set({ item: ITEM_BY_ID[saved.itemId], recent: saved.recent });
+      }).catch(() => {}),
+    ]).then(() => {});
+    return optionsLoad;
+  },
+
+  setMap(map) {
+    const { plan } = get();
+    if (!plan || plan.map === map || !MAP_BY_ID[map]) return;
+    const next = fitToMap(plan, map);
+    // A layout change clears undo history: older snapshots belong to the old map.
+    set({ plan: { ...plan, ...next, map, updatedAt: Date.now() }, occ: buildOcc(next.objects), past: [], future: [], selection: new Set(), dirty: get().dirty + 1 });
+  },
   setSeason(season) {
     const { plan } = get();
     if (!plan) return;

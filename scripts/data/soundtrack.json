@@ -1,0 +1,358 @@
+[
+  {
+    "title": "Stardew Valley Overture",
+    "file": "01-Stardew_Valley_OST_-_Stardew_Valley_Overture-FQSHcl6TJb4.m4a",
+    "station": "farming"
+  },
+  {
+    "title": "Cloud Country",
+    "file": "02-Stardew_Valley_OST_-_Cloud_Country-Tk6tA6OVqvk.m4a",
+    "station": "fishing"
+  },
+  {
+    "title": "Grandpa's Theme",
+    "file": "03-Stardew_Valley_OST_-_Grandpa_s_Theme-Zndgoac6R3o.m4a",
+    "station": "farming"
+  },
+  {
+    "title": "Settling In",
+    "file": "04-Stardew_Valley_OST_-_Settling_In-R0-Q17WChH0.m4a",
+    "station": "farming"
+  },
+  {
+    "title": "Spring (It's a Big World Outside)",
+    "file": "05-Stardew_Valley_OST_-_Spring_It_s_a_Big_World_Outside-FO9WXi9gxQg.m4a",
+    "season": "spring",
+    "station": "farming"
+  },
+  {
+    "title": "Spring (The Valley Comes Alive)",
+    "file": "06-Stardew_Valley_OST_-_Spring_The_Valley_Comes_Alive-fI9QzlD_sm0.m4a",
+    "season": "spring",
+    "station": "farming"
+  },
+  {
+    "title": "Spring (Wild Horseradish Jam)",
+    "file": "07-Stardew_Valley_OST_-_Spring_Wild_Horseradish_Jam-7WuKj7a3ces.m4a",
+    "season": "spring",
+    "station": "farming"
+  },
+  {
+    "title": "Pelican Town",
+    "file": "08-Stardew_Valley_OST_-_Pelican_Town-2_DaayzaOOA.m4a",
+    "station": "farming"
+  },
+  {
+    "title": "Flower Dance",
+    "file": "09-Stardew_Valley_OST_-_Flower_Dance-dcpQQsxoy5w.m4a",
+    "station": "farming"
+  },
+  {
+    "title": "Fun Festival",
+    "file": "10-Stardew_Valley_OST_-_Fun_Festival-si4lCKIZxxw.m4a",
+    "station": "farming"
+  },
+  {
+    "title": "Distant Banjo",
+    "file": "11-Stardew_Valley_OST_-_Distant_Banjo-mhPSbmEXUgw.m4a",
+    "station": "foraging"
+  },
+  {
+    "title": "A Glimpse Of The Other World (Wizard's Theme)",
+    "file": "12-Stardew_Valley_OST_-_A_Glimpse_Of_The_Other_World_Wizard_s_Theme-sggr_NSVY_4.m4a",
+    "station": "foraging"
+  },
+  {
+    "title": "Summer (Nature's Crescendo)",
+    "file": "13-Stardew_Valley_OST_-_Summer_Nature_s_Crescendo-k0nqXeM-sns.m4a",
+    "season": "summer",
+    "station": "farming"
+  },
+  {
+    "title": "Summer (The Sun Can Bend An Orange Sky)",
+    "file": "14-Stardew_Valley_OST_-_Summer_The_Sun_Can_Bend_An_Orange_Sky-C-84hnlrbys.m4a",
+    "season": "summer",
+    "station": "farming"
+  },
+  {
+    "title": "Summer (Tropicala)",
+    "file": "15-Stardew_Valley_OST_-_Summer_Tropicala-n7sDUAALYSM.m4a",
+    "season": "summer",
+    "station": "farming"
+  },
+  {
+    "title": "The Adventure Guild",
+    "file": "16-Stardew_Valley_OST_-_The_Adventure_Guild-6AYJisXjc84.m4a",
+    "station": "fighting"
+  },
+  {
+    "title": "The Stardrop Saloon",
+    "file": "17-Stardew_Valley_OST_-_The_Stardrop_Saloon-KnK1h16ytGg.m4a",
+    "station": "farming"
+  },
+  {
+    "title": "Luau Festival",
+    "file": "18-Stardew_Valley_OST_-_Luau_Festival-O9NcHiAkD6E.m4a",
+    "station": "fishing"
+  },
+  {
+    "title": "Dance Of The Moonlight Jellies",
+    "file": "19-Stardew_Valley_OST_-_Dance_Of_The_Moonlight_Jellies-H-N1FVMaOYk.m4a",
+    "station": "fishing"
+  },
+  {
+    "title": "Fall (The Smell of Mushroom)",
+    "file": "20-Stardew_Valley_OST_-_Fall_The_Smell_of_Mushroom-omVFjGHx0FQ.m4a",
+    "season": "fall",
+    "station": "foraging"
+  },
+  {
+    "title": "Fall (Ghost Synth)",
+    "file": "21-Stardew_Valley_OST_-_Fall_Ghost_Synth-Qd96mpRuHtQ.m4a",
+    "season": "fall",
+    "station": "foraging"
+  },
+  {
+    "title": "Fall (Raven's Descent)",
+    "file": "22-Stardew_Valley_OST_-_Fall_Raven_s_Descent-idOmc35hlhU.m4a",
+    "season": "fall",
+    "station": "foraging"
+  },
+  {
+    "title": "The Library and Museum",
+    "file": "23-Stardew_Valley_OST_-_The_Library_and_Museum-_hefFJ3a534.m4a",
+    "station": "mining"
+  },
+  {
+    "title": "Stardew Valley Fair Theme",
+    "file": "24-Stardew_Valley_OST_-_Stardew_Valley_Fair_Theme-crL0Y18YMO8.m4a",
+    "station": "farming"
+  },
+  {
+    "title": "Festival Game",
+    "file": "25-Stardew_Valley_OST_-_Festival_Game-uBjJrfc2ZhY.m4a",
+    "station": "fighting"
+  },
+  {
+    "title": "Spirit's Eve Festival",
+    "file": "26-Stardew_Valley_OST_-_Spirit_s_Eve_Festival-gI3c4_K3smY.m4a",
+    "station": "foraging"
+  },
+  {
+    "title": "Winter (Nocturne of Ice)",
+    "file": "27-Stardew_Valley_OST_-_Winter_Nocturne_of_Ice-AiX1dBfmftA.m4a",
+    "season": "winter",
+    "station": "fishing"
+  },
+  {
+    "title": "Winter (Ancient)",
+    "file": "29-Stardew_Valley_OST_-_Winter_Ancient-Zr-PHm_qLgg.m4a",
+    "season": "winter",
+    "station": "fishing"
+  },
+  {
+    "title": "Winter Festival",
+    "file": "30-Stardew_Valley_OST_-_Winter_Festival-OCuFNpaUGnU.m4a",
+    "station": "fishing"
+  },
+  {
+    "title": "A Golden Star Is Born",
+    "file": "31-Stardew_Valley_OST_-_A_Golden_Star_Is_Born-SLEHPGYdp-o.m4a",
+    "station": "farming"
+  },
+  {
+    "title": "Country Shop",
+    "file": "32-Stardew_Valley_OST_-_Country_Shop-PsQxcoLZits.m4a",
+    "station": "farming"
+  },
+  {
+    "title": "Calico Desert",
+    "file": "33-Stardew_Valley_OST_-_Calico_Desert-gCRPDso6nQo.m4a",
+    "station": "foraging"
+  },
+  {
+    "title": "Playful",
+    "file": "34-Stardew_Valley_OST_-_Playful-pOtGgXJ4n6s.m4a",
+    "station": "farming"
+  },
+  {
+    "title": "Buttercup Melody",
+    "file": "35-Stardew_Valley_OST_-_Buttercup_Melody-uC638qiRvps.m4a",
+    "station": "foraging"
+  },
+  {
+    "title": "Pleasant Memory (Penny's Theme)",
+    "file": "36-Stardew_Valley_OST_-_Pleasant_Memory_Penny_s_Theme-uCME1I5bRDE.m4a",
+    "station": "fishing"
+  },
+  {
+    "title": "Piano Solo (Elliot's Theme)",
+    "file": "37-Stardew_Valley_OST_-_Piano_Solo_Elliot_s_Theme-bxUg0LJ9l40.m4a",
+    "station": "fishing"
+  },
+  {
+    "title": "Land Of Green And Gold (Leah's Theme)",
+    "file": "38-Stardew_Valley_OST_-_Land_Of_Green_And_Gold_Leah_s_Theme-mfRXYJDEBf8.m4a",
+    "station": "foraging"
+  },
+  {
+    "title": "A Stillness In The Rain (Abigail's Melody)",
+    "file": "39-Stardew_Valley_OST_-_A_Stillness_In_The_Rain_Abigail_s_Melody-YTsvtd9bwJc.m4a",
+    "station": "foraging"
+  },
+  {
+    "title": "Starwatcher (Maru's Theme)",
+    "file": "40-Stardew_Valley_OST_-_Starwatcher_Maru_s_Theme-O6jtHfsa5BE.m4a",
+    "station": "fishing"
+  },
+  {
+    "title": "A Sad Story (Alex's Theme)",
+    "file": "41-Stardew_Valley_OST_-_A_Sad_Story_Alex_s_Theme-voa_SvvI3zY.m4a",
+    "station": "fishing"
+  },
+  {
+    "title": "Pickle Jar Rag (Haley's Theme)",
+    "file": "42-Stardew_Valley_OST_-_Pickle_Jar_Rag_Haley_s_Theme-2dAekw2FGU8.m4a",
+    "station": "farming"
+  },
+  {
+    "title": "Echos (Sebastian's Theme)",
+    "file": "43-Stardew_Valley_OST_-_Echos_Sebastian_s_Theme-lLxPUCWO1pU.m4a",
+    "station": "foraging"
+  },
+  {
+    "title": "Grapefruit Sky (Dr. Harvey's Theme)",
+    "file": "44-Stardew_Valley_OST_-_Grapefruit_Sky_Dr._Harvey_s_Theme-FiywVHFQDfk.m4a",
+    "station": "fishing"
+  },
+  {
+    "title": "Alex's Keepsake",
+    "file": "45-Stardew_Valley_OST_-_Alex_s_Keepsake-Z-uHJyjZGio.m4a",
+    "station": "fishing"
+  },
+  {
+    "title": "Band Practice",
+    "file": "46-Stardew_Valley_OST_-_Band_Practice-ZW5eI1lUhWE.m4a",
+    "station": "fighting"
+  },
+  {
+    "title": "Sam's Band (Electronic)",
+    "file": "47-Stardew_Valley_OST_-_Sam_s_Band_Electronic-MfBpc2xiM0A.m4a",
+    "station": "fighting"
+  },
+  {
+    "title": "Sam's Band (Pop)",
+    "file": "48-Stardew_Valley_OST_-_Sam_s_Band_Pop-FiCV-hwGAZc.m4a",
+    "station": "farming"
+  },
+  {
+    "title": "Sam's Band (Bluegrass)",
+    "file": "49-Stardew_Valley_OST_-_Sam_s_Band_Bluegrass-aRtUVbZgG_I.m4a",
+    "station": "farming"
+  },
+  {
+    "title": "Sam's Band (Heavy)",
+    "file": "50-Stardew_Valley_OST_-_Sam_s_Band_Heavy-f5sfq7QvSfY.m4a",
+    "station": "fighting"
+  },
+  {
+    "title": "A Dark Corner Of The Past",
+    "file": "51-Stardew_Valley_OST_-_A_Dark_Corner_Of_The_Past-fF2O7S-drfA.m4a",
+    "station": "foraging"
+  },
+  {
+    "title": "Music Box Song",
+    "file": "52-Stardew_Valley_OST_-_Music_Box_Song-z_lfgINqKkY.m4a",
+    "station": "fishing"
+  },
+  {
+    "title": "Jaunty",
+    "file": "53-Stardew_Valley_OST_-_Jaunty-K2rPoYfDz8k.m4a",
+    "station": "farming"
+  },
+  {
+    "title": "Violin Solo",
+    "file": "54-Stardew_Valley_OST_-_Violin_Solo-pTVEHDmMPOI.m4a",
+    "station": "fishing"
+  },
+  {
+    "title": "Wedding Celebration",
+    "file": "55-Stardew_Valley_OST_-_Wedding_Celebration-fcI-cTEexKs.m4a",
+    "station": "farming"
+  },
+  {
+    "title": "Mines (Crystal Bells)",
+    "file": "56-Stardew_Valley_OST_-_Mines_Crystal_Bells-YJJIkZxnLVQ.m4a",
+    "station": "mining"
+  },
+  {
+    "title": "Mines (A Flicker In the Deep)",
+    "file": "57-Stardew_Valley_OST_-_Mines_A_Flicker_In_the_Deep-N-3FWXGy4VM.m4a",
+    "station": "mining"
+  },
+  {
+    "title": "Mines (Star Lumpy)",
+    "file": "58-Stardew_Valley_OST_-_Mines_Star_Lumpy-k13ulhZDJrw.m4a",
+    "station": "mining"
+  },
+  {
+    "title": "Mines (Icicles)",
+    "file": "59-Stardew_Valley_OST_-_Mines_Icicles-CZlQ858OWDw.m4a",
+    "station": "mining"
+  },
+  {
+    "title": "Mines (Marimba Of Frozen Bone)",
+    "file": "60-Stardew_Valley_OST_-_Mines_Marimba_Of_Frozen_Bone-JecdkxSZob8.m4a",
+    "station": "mining"
+  },
+  {
+    "title": "Mines (Cloth)",
+    "file": "61-Stardew_Valley_OST_-_Mines_Cloth-eUJuWlK-yEs.m4a",
+    "station": "mining"
+  },
+  {
+    "title": "Mines (Visitor To The Unknown)",
+    "file": "62-Stardew_Valley_OST_-_Mines_Visitor_To_The_Unknown-apQ72oV80_Q.m4a",
+    "station": "mining"
+  },
+  {
+    "title": "Mines (The Lava Dwellers)",
+    "file": "63-Stardew_Valley_OST_-_Mines_The_Lava_Dwellers-wM_-jldP2Nw.m4a",
+    "station": "mining"
+  },
+  {
+    "title": "Mines (Magical Shoes)",
+    "file": "64-Stardew_Valley_OST_-_Mines_Magical_Shoes-8bhltBSOT5I.m4a",
+    "station": "mining"
+  },
+  {
+    "title": "Mines (Danger!)",
+    "file": "65-Stardew_Valley_OST_-_Mines_Danger-Wd6hHrLBkYI.m4a",
+    "station": "fighting"
+  },
+  {
+    "title": "In The Deep Woods",
+    "file": "66-Stardew_Valley_OST_-_In_The_Deep_Woods-nL-c6SuyG8A.m4a",
+    "station": "foraging"
+  },
+  {
+    "title": "Journey Of The Prairie King - Overworld",
+    "file": "67-Stardew_Valley_OST_-_Journey_Of_The_Prairie_King_-_Overworld-yaBNr6zv0ek.m4a",
+    "station": "fighting"
+  },
+  {
+    "title": "Journey Of The Prairie King - The Outlaw",
+    "file": "68-Stardew_Valley_OST_-_Journey_Of_The_Prairie_King_-_The_Outlaw-hjfUwGkC0os.m4a",
+    "station": "fighting"
+  },
+  {
+    "title": "Journey Of The Prairie King - Final Boss & Ending",
+    "file": "69-Stardew_Valley_OST_-_Journey_Of_The_Prairie_King_-_Final_Boss_Ending-hDrleZmzrS8.m4a",
+    "station": "fighting"
+  },
+  {
+    "title": "Load Game",
+    "file": "70-Stardew_Valley_OST_-_Load_Game-QXwX-QD6Y60.m4a",
+    "station": "farming"
+  }
+]

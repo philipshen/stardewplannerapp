@@ -10,6 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { BUILDING_SIZES, EXTRA_PLACEABLES, FURNITURE, GROUND_TILES, RANGES } from './supplemental';
+import { EXTRA_BUILDINGS, EXTRA_CROPS, EXTRA_FURNITURE, EXTRA_GROUPS, EXTRA_TREES } from './supplemental-extra';
 
 const DATA = path.join(__dirname, '..', 'node_modules', 'stardew-valley-data', 'data');
 const OUT = path.join(__dirname, '..', 'src', 'data', 'generated', 'items.json');
@@ -41,6 +42,10 @@ export type Item = {
   trellis?: boolean;
   tall?: number;
   tags?: string[];
+  /** Game ids, used to read game save files: harvest/sapling id and seed id. */
+  legacy?: boolean;
+  gid?: string;
+  sid?: string;
 };
 
 const slug = (s: string) =>
@@ -99,6 +104,10 @@ for (const b of load('buildings')) {
   add({ name: 'Farmhouse', cat: 'buildings', sub: 'Farm', kind: 'building', w: fh.w, h: fh.h, tall: fh.tall, place: 'building', d: 'Your home. Upgraded by Robin; one per farm.' });
 }
 
+for (const [name, b] of Object.entries(EXTRA_BUILDINGS)) {
+  add({ name, cat: 'buildings', sub: b.sub, kind: 'building', w: b.w, h: b.h, tall: b.tall, place: 'building', d: b.d });
+}
+
 // ---------------------------------------------------------------- Crops (placeable) + produce/seeds (catalog)
 for (const c of load('crops')) {
   if (c.name === 'Fiber') {
@@ -120,6 +129,8 @@ for (const c of load('crops')) {
     h: 1,
     place: 'crop',
     seasons: c.seasons,
+    gid: c.id ? String(c.id) : undefined,
+    sid: c.seedId ? String(c.seedId) : undefined,
     grow: c.growDays,
     regrow: c.regrowDays,
     trellis: c.trellis,
@@ -152,8 +163,17 @@ add({ id: 'crop-tea-bush', name: 'Tea Bush', cat: 'crops', sub: 'Special', kind:
 add({ id: 'crop-mixed-seeds', name: 'Mixed Crop', cat: 'crops', sub: 'Special', kind: 'crop', w: 1, h: 1, place: 'crop', d: 'Placeholder for a crop grown from Mixed Seeds.' });
 add({ name: 'Trellis Marker', cat: 'crops', sub: 'Special', kind: 'trellis', w: 1, h: 1, place: 'crop', d: 'Marks a tile reserved for a trellis crop (Hops, Grape, Green Bean).' });
 
+for (const c of EXTRA_CROPS) {
+  add({ id: 'crop-' + slug(c.name), name: c.name, cat: 'crops', sub: c.sub, kind: c.kind, w: c.w, h: c.w, place: 'crop', seasons: c.seasons, d: c.d });
+}
+
 // ---------------------------------------------------------------- Trees
+for (const name of EXTRA_TREES) {
+  add({ id: 'tree-' + slug(name), name, cat: 'trees', sub: 'Wild Trees', kind: 'tree', w: 1, h: 1, tall: 5, place: 'tree', d: 'Wild tree that grows after green rain. Covered in moss and ferns.' });
+}
 for (const t of load('trees')) {
+  // Wiki: the fern tree is Green Rain Tree type 3. It is added below with the other two types.
+  if (t.name === 'Fiddlehead Stalk') continue;
   const fruit = t.type === 'fruit-tree';
   add({
     id: 'tree-' + slug(t.name),
@@ -165,6 +185,7 @@ for (const t of load('trees')) {
     h: 1,
     tall: fruit ? 4 : 5,
     place: 'tree',
+    gid: fruit && t.saplingId ? String(t.saplingId) : undefined,
     seasons: t.seasons ?? undefined,
     buy: t.saplingBuyPrices?.[0]?.price,
     sell: t.saplingSellPrice,
@@ -241,6 +262,7 @@ function craftSummary(name: string, sub: string, mats: [string, number][]) {
     spr1: 'Waters the 4 adjacent tiles each morning',
     spr2: 'Waters the 8 surrounding tiles each morning',
     spr3: 'Waters a 5×5 area (24 tiles) each morning',
+    spr4: 'Waters a 7×7 area (48 tiles) each morning',
     scare8: 'Protects crops within an 8-tile radius from crows',
     scare16: 'Protects crops within a 16-tile radius from crows',
     bee: 'Makes honey; flowers within 5 tiles flavor it',
@@ -253,7 +275,7 @@ function craftSummary(name: string, sub: string, mats: [string, number][]) {
 
 // Fences: give HP/durability-free footprints; Gate is a fence-like piece.
 // ---------------------------------------------------------------- Supplemental furniture + placeables
-for (const grp of [...FURNITURE, ...EXTRA_PLACEABLES]) {
+for (const grp of [...FURNITURE, ...EXTRA_PLACEABLES, ...EXTRA_FURNITURE, ...EXTRA_GROUPS]) {
   for (const entry of grp.items) {
     const [name, w, h] = entry.split('|');
     const W = w ? Number(w) : grp.w;
@@ -362,6 +384,19 @@ for (const b of load('bundles')) {
     if (it) (it.tags ??= []).includes('bundle') || it.tags!.push('bundle');
   }
 }
+
+// These early placeholder names are not game furniture. Keep their IDs readable
+// in existing plans, but never offer them when making a new plan.
+for (const id of ['pickle-jar-beauty', 'circular-rug']) {
+  const item = items.get(id);
+  if (item) item.legacy = true;
+}
+// Animal Catalogue is a power book, not a placeable furniture catalogue.
+const animalCatalogue = items.get('animal-catalogue');
+if (animalCatalogue) Object.assign(animalCatalogue, {
+  cat: 'books', sub: 'Power Books', kind: 'book', place: null,
+  d: "Read to access Marnie's shop when she is away from the counter. Available from Year 2.",
+});
 
 const list = [...items.values()].sort((a, b) => a.cat.localeCompare(b.cat) || a.sub.localeCompare(b.sub) || a.name.localeCompare(b.name));
 for (const it of list) {

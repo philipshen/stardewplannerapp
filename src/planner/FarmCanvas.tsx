@@ -1,6 +1,6 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, Platform, StyleSheet, View } from 'react-native';
-import { Atlas, Canvas, Group, Image as SkiaImage, Path, Rect, Skia, useImage } from '@shopify/react-native-skia';
+import { Atlas, Canvas, Group, Image as SkiaImage, Path, Picture, Rect, Skia, useImage } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -11,9 +11,14 @@ import { WORLD_SHEETS } from '../data/generated/assets';
 import { useEditor } from '../store/editor';
 import {
   blockedTrees, buildOcc, canPlace, coverage, eraseAt, Edit, key, layerOf, lineTiles, objectAt, Placed, placeItem, RANGE_STYLE, RangeKind,
-  offsetsFor, rectTiles, stampPositions, terrainOk, uid,
+  torchLift, offsetsFor, placementCells, soilForCrops, rectTiles, stampPositions, tileBuildable, tileTillable, uid,
 } from './model';
-import { buildDrawData, NEAREST, renderPlanPNG, spriteKey, TILE } from './render';
+import { buildDrawData, groundKey, NEAREST, renderPlanPNG, spriteKey, TILE } from './render';
+import { t, translateReason } from '../i18n';
+import { sfx, unlockAudio } from '../audio';
+import { planLights } from './lighting';
+import { nightPicture } from './night';
+import { Wildlife } from './Wildlife';
 
 export type FarmCanvasHandle = {
   fit: () => void;
@@ -23,7 +28,7 @@ export type FarmCanvasHandle = {
 };
 
 type Preview =
-  | { kind: 'ghost'; item: Item; x: number; y: number; ok: boolean }
+  | { kind: 'ghost'; item: Item; x: number; y: number; ok: boolean; cells: ReturnType<typeof placementCells> }
   | { kind: 'rect'; x0: number; y0: number; x1: number; y1: number; erase: boolean; item: Item | null; outline: boolean }
   | { kind: 'move'; dx: number; dy: number; ok: boolean }
   | { kind: 'marquee'; x0: number; y0: number; x1: number; y1: number }
@@ -31,7 +36,7 @@ type Preview =
 
 const haptic = () => { if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); };
 
-export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed | null) => void }>(function FarmCanvas({ onSelect }, ref) {
+export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed | null) => void; onContextMenu?: (o: Placed) => void; readOnly?: boolean; viewInsets?: { top: number; bottom: number } }>(function FarmCanvas({ onSelect, onContextMenu, readOnly = false, viewInsets }, ref) {
   const plan = useEditor((s) => s.plan)!;
   const occ = useEditor((s) => s.occ);
   const tool = useEditor((s) => s.tool);
@@ -49,6 +54,7 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
   const transform = useDerivedValue(() => [{ translateX: tx.value }, { translateY: ty.value }, { scale: sc.value }]);
   const gridOpacity = useDerivedValue(() => Math.max(0, Math.min(0.5, (sc.value - 0.9) * 0.6)));
   const worldW = map.w * TILE, worldH = map.h * TILE;
+  const lighting = useMemo(() => layers.night ? nightPicture(planLights(plan.objects, occ), worldW, worldH) : null, [layers.night, plan.objects, occ, worldW, worldH]);
   const vw = useSharedValue(1), vh = useSharedValue(1);
   useEffect(() => { vw.value = size.w || 1; vh.value = size.h || 1; }, [size, vw, vh]);
   /** Keep part of the map on screen (at most 40% of the viewport may be empty past an edge). */
@@ -59,13 +65,14 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
     return Math.max(lo, Math.min(hi, t));
   };
 
-  const fitScale = useCallback(() => (size.w && size.h ? Math.min(size.w / worldW, size.h / worldH) * 0.96 : 1), [size, worldW, worldH]);
+  const insetTop = viewInsets?.top ?? 0, insetBottom = viewInsets?.bottom ?? 0;
+  const fitScale = useCallback(() => (size.w && size.h ? Math.min(size.w / worldW, Math.max(1, size.h - insetTop - insetBottom) / worldH) * 0.96 : 1), [size, worldW, worldH, insetTop, insetBottom]);
   const fit = useCallback(() => {
     const s = fitScale();
     sc.value = withTiming(s, { duration: 250 });
     tx.value = withTiming((size.w - worldW * s) / 2, { duration: 250 });
-    ty.value = withTiming((size.h - worldH * s) / 2, { duration: 250 });
-  }, [fitScale, size, worldW, worldH, sc, tx, ty]);
+    ty.value = withTiming((size.h + insetTop - insetBottom - worldH * s) / 2, { duration: 250 });
+  }, [fitScale, size, worldW, worldH, sc, tx, ty, insetTop, insetBottom]);
   const focus = useCallback((x: number, y: number, s?: number) => {
     const scale = s ?? Math.max(sc.value, 1.5);
     sc.value = withTiming(scale, { duration: 250 });
@@ -74,11 +81,27 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
   }, [size, sc, tx, ty]);
 
   const didInit = useRef<string | null>(null);
+  const previousSize = useRef<{ w: number; h: number } | null>(null);
   useEffect(() => {
-    if (!size.w || didInit.current === plan.id) return;
-    didInit.current = plan.id;
+    if (!size.w || !size.h) return;
+    const samePlan = didInit.current === plan.id + plan.map;
+    const before = previousSize.current;
+    previousSize.current = size;
     minSc.value = fitScale() * 0.7;
-    if (map.kind === 'farm') {
+    if (samePlan && !readOnly) {
+      // Preserve the tile at the center when rotating an editable farm.
+      if (before && (before.w !== size.w || before.h !== size.h)) {
+        const cx = (before.w / 2 - tx.value) / sc.value;
+        const cy = (before.h / 2 - ty.value) / sc.value;
+        const nextScale = Math.max(minSc.value, sc.value);
+        sc.value = nextScale;
+        tx.value = clampT(size.w / 2 - cx * nextScale, size.w, worldW * nextScale);
+        ty.value = clampT(size.h / 2 - cy * nextScale, size.h, worldH * nextScale);
+      }
+      return;
+    }
+    didInit.current = plan.id + plan.map;
+    if (map.kind === 'farm' && !readOnly) {
       const home = plan.objects.find((o) => o.id === 'farmhouse') ?? plan.objects[0];
       const s = Math.max(fitScale(), Math.min(1.6, size.w / (TILE * 22)));
       sc.value = s;
@@ -87,9 +110,9 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
       ty.value = Math.max(size.h - worldH * s, Math.min(0, size.h / 2 - cy * TILE * s));
     } else {
       const s = fitScale();
-      sc.value = s; tx.value = (size.w - worldW * s) / 2; ty.value = (size.h - worldH * s) / 2;
+      sc.value = s; tx.value = (size.w - worldW * s) / 2; ty.value = (size.h + insetTop - insetBottom - worldH * s) / 2;
     }
-  }, [size, plan.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [size, plan.id, plan.map, readOnly, insetTop, insetBottom]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const zoomBy = useCallback((f: number) => {
     const ns = Math.max(minSc.value, Math.min(6, sc.value * f));
@@ -110,16 +133,24 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
     return p.build();
   }, [map, worldW, worldH]);
 
-  const blockedPath = useMemo(() => {
-    if (!layers.blocked) return null;
+  const areaPath = (on: boolean, test: (x: number, y: number) => boolean) => {
+    if (!on) return null;
     const p = Skia.PathBuilder.Make();
-    const probe = ITEM_BY_ID['chest'];
-    for (let y = 0; y < map.h; y++) for (let x = 0; x < map.w; x++) if (!terrainOk(probe, map, x, y)) p.addRect(Skia.XYWHRect(x * TILE, y * TILE, TILE, TILE));
+    // Merge runs of tiles in a row into one rect to keep the path small.
+    for (let y = 0; y < map.h; y++) {
+      let run = -1;
+      for (let x = 0; x <= map.w; x++) {
+        const ok = x < map.w && test(x, y);
+        if (ok && run < 0) run = x;
+        if (!ok && run >= 0) { p.addRect(Skia.XYWHRect(run * TILE, y * TILE, (x - run) * TILE, TILE)); run = -1; }
+      }
+    }
     return p.build();
-  }, [layers.blocked, map]);
+  };
+  const buildablePath = useMemo(() => areaPath(layers.buildable, (x, y) => tileBuildable(map, x, y)), [layers.buildable, map]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tillablePath = useMemo(() => areaPath(layers.tillable, (x, y) => tileTillable(map, x, y)), [layers.tillable, map]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const coverPaths = useMemo(() => {
-    if (!layers.coverage) return [];
     const groups = new Set(Object.entries({ water: layers.water, crow: layers.crow, junimo: layers.junimo, bee: layers.bee, log: true }).filter(([, v]) => v).map(([k]) => k));
     const cov = coverage(plan.objects, groups);
     const colors: Record<string, string> = { water: RANGE_STYLE.spr1.color, crow: RANGE_STYLE.scare8.color, junimo: RANGE_STYLE.junimo.color, bee: RANGE_STYLE.bee.color, log: RANGE_STYLE.log.color };
@@ -170,10 +201,10 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
   const ghost = useMemo(() => {
     const out: { sprites: ReturnType<typeof Skia.XYWHRect>[]; xf: ReturnType<typeof Skia.RSXform>[] } = { sprites: [], xf: [] };
     const add = (o: Placed) => {
-      const rec = SPRITES.world[spriteKey(o, plan.season, occ)] ?? SPRITES.world[`${o.id}#0`];
+      const rec = SPRITES.world[spriteKey(o, plan.season, occ)] ?? SPRITES.world[groundKey(o.id, o.x, o.y, plan.season)] ?? SPRITES.world[`${o.id}#0`];
       if (!rec) return;
       out.sprites.push(Skia.XYWHRect(rec[1], rec[2], rec[3], rec[4]));
-      out.xf.push(Skia.RSXform(1, 0, o.x * TILE + rec[5], o.y * TILE + rec[6]));
+      out.xf.push(Skia.RSXform(1, 0, o.x * TILE + rec[5], o.y * TILE + rec[6] - torchLift(o, occ)));
     };
     if (preview?.kind === 'ghost') add({ u: 'g', id: preview.item.id, x: preview.x, y: preview.y });
     if (preview?.kind === 'move') for (const o of plan.objects) if (selection.has(o.u)) add({ ...o, x: o.x + preview.dx, y: o.y + preview.dy });
@@ -181,8 +212,8 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
   }, [preview, plan.objects, plan.season, selection, occ]);
 
   // ---------------------------------------------------------------- tool logic (JS thread)
-  const stroke = useRef<{ active: boolean; started: boolean; sx: number; sy: number; lx: number; ly: number; mode: 'paint' | 'ghost' | 'rect' | 'erase' | 'erase-rect' | 'move' | 'marquee' | 'pan' | 'none'; moved: boolean; lastMsg: number }>({
-    active: false, started: false, sx: 0, sy: 0, lx: 0, ly: 0, mode: 'none', moved: false, lastMsg: 0,
+  const stroke = useRef<{ active: boolean; started: boolean; recorded: boolean; sx: number; sy: number; lx: number; ly: number; mode: 'paint' | 'ghost' | 'rect' | 'erase' | 'erase-single' | 'erase-rect' | 'move' | 'marquee' | 'pan' | 'none'; moved: boolean; lastMsg: number }>({
+    active: false, started: false, recorded: false, sx: 0, sy: 0, lx: 0, ly: 0, mode: 'none', moved: false, lastMsg: 0,
   });
 
   const toTile = (x: number, y: number) => [Math.floor((x - tx.value) / sc.value / TILE), Math.floor((y - ty.value) / sc.value / TILE)] as const;
@@ -191,7 +222,8 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
     const s = stroke.current;
     if (Date.now() - s.lastMsg < 1200) return;
     s.lastMsg = Date.now();
-    useEditor.getState().showToast(msg);
+    sfx('error');
+    useEditor.getState().showToast(translateReason(msg));
   };
 
   const applyPlace = (it: Item, tiles: [number, number][]) => {
@@ -200,15 +232,22 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
     const o = buildOcc(cur.objects);
     let changed = false, lastErr = '';
     for (const [x, y] of tiles) {
-      const chk = canPlace({ ...st.plan!, ...cur }, o, it, x, y);
+      const chk = canPlace({ ...st.plan!, ...cur }, o, it, x, y, undefined, st.layers.anywhere);
       if (!chk.ok) { lastErr = chk.reason; continue; }
       const next = placeItem({ ...cur, map: st.plan!.map }, o, it, x, y);
       if (next) { cur = next; changed = true; }
     }
-    if (changed) { st.commit(cur, false); haptic(); }
+    if (changed) {
+      // Brush strokes enter history only when they actually change the farm.
+      if (!stroke.current.recorded) { st.checkpoint(); stroke.current.recorded = true; }
+      st.commit(cur, false); haptic(); sfx(it.kind === 'building' ? 'build' : 'place'); }
     else if (lastErr) warn(lastErr);
     return changed;
   };
+
+  // Keep the painted footprint centered on the same tile as its preview.
+  const paintAt = (it: Item, tiles: [number, number][]) => applyPlace(it, tiles.map(([x, y]) =>
+    [x - Math.floor((it.w - 1) / 2), y - Math.floor((it.h - 1) / 2)]));
 
   const applyErase = (tiles: [number, number][]) => {
     const st = useEditor.getState();
@@ -219,21 +258,32 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
       const next = eraseAt(cur, o, x, y);
       if (next) { cur = next; changed = true; }
     }
-    if (changed) { st.commit(cur, false); haptic(); }
+    if (changed) {
+      // Brush strokes enter history only when they actually change the farm.
+      if (!stroke.current.recorded) { st.checkpoint(); stroke.current.recorded = true; }
+      st.commit(cur, false); haptic(); sfx('erase'); }
     return changed;
   };
 
+  const showPlacement = (it: Item, gx: number, gy: number) => {
+    const st = useEditor.getState();
+    const x = gx - Math.floor((it.w - 1) / 2), y = gy - Math.floor((it.h - 1) / 2);
+    const cells = placementCells(st.plan!, st.occ, it, x, y, undefined, st.layers.anywhere);
+    setPreview({ kind: 'ghost', item: it, x, y, ok: cells.every(c => c.ok), cells });
+  };
+
   const onBegin = (x: number, y: number) => {
+    unlockAudio();
     const s = stroke.current;
     const [gx, gy] = toTile(x, y);
-    Object.assign(s, { active: true, started: false, sx: gx, sy: gy, lx: gx, ly: gy, moved: false });
+    Object.assign(s, { active: true, started: false, recorded: false, sx: gx, sy: gy, lx: gx, ly: gy, moved: false });
     const st = useEditor.getState();
-    if (st.tool === 'pan') { s.mode = 'pan'; return; }
+    if (readOnly || st.tool === 'pan') { s.mode = 'pan'; return; }
     if (st.tool === 'place') {
       if (!st.item) { s.mode = 'none'; return; }
-      const big = st.item.w > 1 || st.item.h > 1;
-      s.mode = st.shape !== 'brush' ? 'rect' : big ? 'ghost' : 'paint';
-    } else if (st.tool === 'erase') s.mode = st.shape === 'brush' ? 'erase' : 'erase-rect';
+      s.mode = st.shape === 'single' ? 'ghost' : st.shape === 'rect' ? 'rect' : 'paint';
+      showPlacement(st.item, gx, gy);
+    } else if (st.tool === 'erase') s.mode = st.shape === 'single' ? 'erase-single' : st.shape === 'rect' ? 'erase-rect' : 'erase';
     else if (st.tool === 'select') {
       const o = objectAt(st.occ, gx, gy);
       if (o) {
@@ -247,39 +297,37 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
     const s = stroke.current;
     if (s.started) return;
     s.started = true;
-    if (s.mode === 'paint' || s.mode === 'erase' || s.mode === 'rect' || s.mode === 'erase-rect' || s.mode === 'ghost' || s.mode === 'move') useEditor.getState().checkpoint();
-    if (s.mode === 'paint') applyPlace(useEditor.getState().item!, [[s.sx, s.sy]]);
+    if (s.mode === 'move') {
+      useEditor.getState().checkpoint(); s.recorded = true;
+    }
+    if (s.mode === 'paint') paintAt(useEditor.getState().item!, [[s.sx, s.sy]]);
     if (s.mode === 'erase') applyErase([[s.sx, s.sy]]);
   };
 
   const onUpdate = (x: number, y: number, dist: number) => {
     const s = stroke.current;
-    if (!s.active || s.mode === 'pan' || s.mode === 'none') return;
-    const [gx, gy] = toTile(x, y);
+    if (!s.active || s.mode === 'none') return;
     if (dist > 6) s.moved = true;
+    if (s.mode === 'pan') return;
+    const [gx, gy] = toTile(x, y);
     if (!s.started && (dist > 6 || s.mode === 'ghost')) startStroke();
     if (!s.started) return;
     const st = useEditor.getState();
     if (gx === s.lx && gy === s.ly && s.mode !== 'ghost') return;
     switch (s.mode) {
-      case 'paint': applyPlace(st.item!, lineTiles(s.lx, s.ly, gx, gy).slice(1)); break;
+      case 'paint': showPlacement(st.item!, gx, gy); paintAt(st.item!, lineTiles(s.lx, s.ly, gx, gy).slice(1)); break;
       case 'erase': applyErase(lineTiles(s.lx, s.ly, gx, gy).slice(1)); break;
-      case 'ghost': {
-        const it = st.item!;
-        const ax = gx - Math.floor((it.w - 1) / 2), ay = gy - Math.floor((it.h - 1) / 2);
-        setPreview({ kind: 'ghost', item: it, x: ax, y: ay, ok: canPlace(st.plan!, st.occ, it, ax, ay).ok });
-        break;
-      }
+      case 'ghost': showPlacement(st.item!, gx, gy); break;
       case 'rect':
-        setPreview({ kind: 'rect', x0: s.sx, y0: s.sy, x1: gx, y1: gy, erase: false, item: st.item, outline: st.shape === 'outline' });
+        setPreview({ kind: 'rect', x0: s.sx, y0: s.sy, x1: gx, y1: gy, erase: false, item: st.item, outline: false });
         break;
       case 'erase-rect':
-        setPreview({ kind: 'rect', x0: s.sx, y0: s.sy, x1: gx, y1: gy, erase: true, item: null, outline: st.shape === 'outline' });
+        setPreview({ kind: 'rect', x0: s.sx, y0: s.sy, x1: gx, y1: gy, erase: true, item: null, outline: false });
         break;
       case 'move': {
         const dx = gx - s.sx, dy = gy - s.sy;
         const sel = st.plan!.objects.filter((o) => st.selection.has(o.u));
-        const ok = sel.every((o) => canPlace(st.plan!, st.occ, ITEM_BY_ID[o.id], o.x + dx, o.y + dy, st.selection).ok);
+        const ok = sel.every((o) => canPlace(st.plan!, st.occ, ITEM_BY_ID[o.id], o.x + dx, o.y + dy, st.selection, st.layers.anywhere).ok);
         setPreview({ kind: 'move', dx, dy, ok });
         break;
       }
@@ -294,53 +342,56 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
     const s = stroke.current;
     if (!s.active) return;
     s.active = false;
+    if (readOnly) { setPreview(null); return; }
     const st = useEditor.getState();
     const [gx, gy] = toTile(x, y);
+    if (s.mode === 'erase-single') { applyErase([[gx, gy]]); setPreview(null); return; }
     if (!s.started) {
       // A tap.
       if (s.mode === 'paint' || s.mode === 'erase') { startStroke(); }
       else if (s.mode === 'ghost' || (s.mode === 'rect' && !s.moved)) {
-        st.checkpoint();
         const it = st.item!;
         const ax = gx - Math.floor((it.w - 1) / 2), ay = gy - Math.floor((it.h - 1) / 2);
-        if (!applyPlace(it, [[ax, ay]])) st.rollback();
-      } else if (s.mode === 'erase-rect') { st.checkpoint(); if (!applyErase([[gx, gy]])) st.rollback(); }
+        applyPlace(it, [[ax, ay]]);
+      } else if (s.mode === 'erase-rect') { applyErase([[gx, gy]]); }
       else if (s.mode === 'marquee' || s.mode === 'pan') {
         const o = objectAt(st.occ, gx, gy);
-        if (s.mode === 'pan' && o) { st.setTool('select'); st.select([o.u]); onSelect?.(o); }
+        if (s.mode === 'pan' && !s.moved && o) { st.setTool('select'); st.select([o.u]); onSelect?.(o); }
         else if (s.mode === 'marquee') { st.select(o ? [o.u] : []); onSelect?.(o ?? null); }
       } else if (s.mode === 'move') { /* tapped an object: selected in begin */ }
       setPreview(null);
       return;
     }
     switch (s.mode) {
+      case 'paint': paintAt(st.item!, lineTiles(s.lx, s.ly, gx, gy).slice(1)); break;
+      case 'erase': applyErase(lineTiles(s.lx, s.ly, gx, gy).slice(1)); break;
       case 'ghost': {
         const it = st.item!;
         const ax = gx - Math.floor((it.w - 1) / 2), ay = gy - Math.floor((it.h - 1) / 2);
-        if (!applyPlace(it, [[ax, ay]])) st.rollback();
+        applyPlace(it, [[ax, ay]]);
         break;
       }
       case 'rect': {
         const it = st.item!;
-        if (!applyPlace(it, stampPositions(it, s.sx, s.sy, gx, gy, st.shape === 'outline'))) st.rollback();
+        applyPlace(it, stampPositions(it, s.sx, s.sy, gx, gy, false));
         break;
       }
       case 'erase-rect': {
-        const tiles = rectTiles(s.sx, s.sy, gx, gy, st.shape === 'outline');
-        if (!applyErase(tiles)) st.rollback();
+        const tiles = rectTiles(s.sx, s.sy, gx, gy, false);
+        applyErase(tiles);
         break;
       }
       case 'move': {
         const dx = gx - s.sx, dy = gy - s.sy;
         const sel = st.plan!.objects.filter((o) => st.selection.has(o.u));
-        const ok = (dx || dy) && sel.every((o) => canPlace(st.plan!, st.occ, ITEM_BY_ID[o.id], o.x + dx, o.y + dy, st.selection).ok);
+        const ok = (dx || dy) && sel.every((o) => canPlace(st.plan!, st.occ, ITEM_BY_ID[o.id], o.x + dx, o.y + dy, st.selection, st.layers.anywhere).ok);
         if (ok) {
-          // Crops carry their tilled soil along.
-          st.commit({ ground: st.plan!.ground, objects: st.plan!.objects.map((o) => (st.selection.has(o.u) ? { ...o, x: o.x + dx, y: o.y + dy } : o)) }, false);
+          const objects = st.plan!.objects.map((o) => (st.selection.has(o.u) ? { ...o, x: o.x + dx, y: o.y + dy } : o));
+          st.commit({ ground: soilForCrops(st.plan!.ground, objects.filter((o) => st.selection.has(o.u))), objects }, false);
           haptic();
         } else {
           st.rollback();
-          if (dx || dy) warn("Can't move there");
+          if (dx || dy) warn(t('toast.cantMove'));
         }
         break;
       }
@@ -362,81 +413,110 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
     const s = stroke.current;
     if (!s.active) return;
     s.active = false;
-    if (s.started && s.mode !== 'marquee' && s.mode !== 'pan') useEditor.getState().rollback();
+    if (s.recorded) useEditor.getState().rollback();
     setPreview(null);
   };
 
+  /** The pan gesture ended without activating: a tap if nothing was drawn yet, else an interrupted stroke. */
+  const onTapOrCancel = (x: number, y: number) => {
+    if (stroke.current.started) onCancel(); else onEnd(x, y);
+  };
+
   const onLongPress = (x: number, y: number) => {
+    if (readOnly) return;
     const s = stroke.current;
-    if (s.started && s.moved) return;
-    if (s.started) onCancel(); else s.active = false;
+    const current = useEditor.getState();
+    if (!s.active || s.moved || s.recorded || (current.tool === 'place' && current.shape !== 'single')) return;
     const [gx, gy] = toTile(x, y);
     const st = useEditor.getState();
     const o = objectAt(st.occ, gx, gy);
     if (o) {
+      onCancel();
       st.setTool('select');
       st.select([o.u]);
       onSelect?.(o);
       haptic();
+      sfx('select');
+      onContextMenu?.(o);
     }
   };
 
   const onHover = (x: number, y: number) => {
+    if (readOnly) return;
     const st = useEditor.getState();
     if (stroke.current.active || st.tool !== 'place' || !st.item) { if (preview?.kind === 'ghost' && !stroke.current.active) setPreview(null); return; }
     const [gx, gy] = toTile(x, y);
     const it = st.item;
     const ax = gx - Math.floor((it.w - 1) / 2), ay = gy - Math.floor((it.h - 1) / 2);
     if (preview?.kind === 'ghost' && preview.x === ax && preview.y === ay && preview.item === it) return;
-    setPreview({ kind: 'ghost', item: it, x: ax, y: ay, ok: canPlace(st.plan!, st.occ, it, ax, ay).ok });
+    showPlacement(it, gx, gy);
   };
 
   // ---------------------------------------------------------------- gestures
-  const toolSV = useSharedValue(tool);
-  useEffect(() => { toolSV.value = tool; }, [tool, toolSV]);
-  const pinchStart = useSharedValue({ s: 1, tx: 0, ty: 0, fx: 0, fy: 0 });
-  const panStart = useSharedValue({ tx: 0, ty: 0 });
+  const toolSV = useSharedValue(readOnly ? 'pan' : tool);
+  useEffect(() => { toolSV.value = readOnly ? 'pan' : tool; }, [tool, toolSV, readOnly]);
+  // Pinch and pan both run at the same time, so each one applies only its change since the last frame.
+  const lastScale = useSharedValue(1);
+  const lastPan = useSharedValue({ x: 0, y: 0 });
+  /** Skip one pan frame after the number of fingers changes: the touch centroid jumps then. */
+  const resync = useSharedValue(true);
   const pointers = useSharedValue(0);
+  /** True once a second finger touched during this gesture. Such a gesture never edits the plan. */
+  const multi = useSharedValue(false);
+  const downAt = useSharedValue({ x: 0, y: 0 });
 
   const pinch = Gesture.Pinch()
-    .onStart((e) => {
-      pinchStart.value = { s: sc.value, tx: tx.value, ty: ty.value, fx: e.focalX, fy: e.focalY };
+    .onStart(() => {
+      lastScale.value = 1;
       runOnJS(onCancel)();
     })
     .onUpdate((e) => {
-      const st = pinchStart.value;
-      const ns = Math.max(minSc.value, Math.min(6, st.s * e.scale));
+      const ns = Math.max(minSc.value, Math.min(6, (sc.value * e.scale) / lastScale.value));
+      lastScale.value = e.scale;
+      tx.value = clampT(e.focalX - ((e.focalX - tx.value) * ns) / sc.value, vw.value, worldW * ns);
+      ty.value = clampT(e.focalY - ((e.focalY - ty.value) * ns) / sc.value, vh.value, worldH * ns);
       sc.value = ns;
-      tx.value = clampT(e.focalX - ((st.fx - st.tx) * ns) / st.s, vw.value, worldW * ns);
-      ty.value = clampT(e.focalY - ((st.fy - st.ty) * ns) / st.s, vh.value, worldH * ns);
     });
 
   const pan = Gesture.Pan()
     .minDistance(0)
     .averageTouches(true)
-    .onTouchesDown((e) => { pointers.value = e.numberOfTouches; })
-    .onTouchesUp((e) => { pointers.value = e.numberOfTouches; })
-    .onBegin((e) => {
-      panStart.value = { tx: tx.value, ty: ty.value };
-      runOnJS(onBegin)(e.x, e.y);
-    })
-    .onUpdate((e) => {
-      if (pointers.value > 1) {
-        // Two-finger drag pans the view in any tool.
-        tx.value = clampT(panStart.value.tx + e.translationX, vw.value, worldW * sc.value);
-        ty.value = clampT(panStart.value.ty + e.translationY, vh.value, worldH * sc.value);
-        return;
+    .onTouchesDown((e) => {
+      pointers.value = e.numberOfTouches;
+      resync.value = true;
+      if (e.numberOfTouches === 1) {
+        multi.value = false;
+        const touch = e.changedTouches[0];
+        if (touch) {
+          lastPan.value = { x: 0, y: 0 };
+          downAt.value = { x: touch.x, y: touch.y };
+          runOnJS(onBegin)(touch.x, touch.y);
+        }
       }
-      if (toolSV.value === 'pan') {
-        tx.value = clampT(panStart.value.tx + e.translationX, vw.value, worldW * sc.value);
-        ty.value = clampT(panStart.value.ty + e.translationY, vh.value, worldH * sc.value);
-        if (Math.abs(e.translationX) + Math.abs(e.translationY) > 6) runOnJS(onUpdate)(e.x, e.y, 99);
+      else if (!multi.value) { multi.value = true; runOnJS(onCancel)(); }
+    })
+    .onTouchesUp((e) => { pointers.value = e.numberOfTouches; resync.value = true; })
+    .onUpdate((e) => {
+      const dx = resync.value ? 0 : e.translationX - lastPan.value.x, dy = resync.value ? 0 : e.translationY - lastPan.value.y;
+      lastPan.value = { x: e.translationX, y: e.translationY };
+      resync.value = false;
+      // Two fingers move the view in any tool. One finger moves it in the Pan tool.
+      if (multi.value || toolSV.value === 'pan') {
+        tx.value = clampT(tx.value + dx, vw.value, worldW * sc.value);
+        ty.value = clampT(ty.value + dy, vh.value, worldH * sc.value);
+        if (!multi.value && Math.abs(e.translationX) + Math.abs(e.translationY) > 6) runOnJS(onUpdate)(e.x, e.y, 99);
         return;
       }
       runOnJS(onUpdate)(e.x, e.y, Math.abs(e.translationX) + Math.abs(e.translationY));
     })
-    .onEnd((e) => { if (pointers.value <= 1) runOnJS(onEnd)(e.x, e.y); else runOnJS(onCancel)(); })
-    .onFinalize((_, success) => { if (!success) runOnJS(onCancel)(); });
+    .onEnd((e) => { if (multi.value) runOnJS(onCancel)(); else runOnJS(onEnd)(e.x, e.y); })
+    .onFinalize((_, success) => {
+      if (success) return;
+      // On iOS and Android a touch that does not move never activates the pan, so it ends here.
+      // That is a tap: finish it where the finger went down. (A long press has already closed the stroke.)
+      if (multi.value) runOnJS(onCancel)();
+      else runOnJS(onTapOrCancel)(downAt.value.x, downAt.value.y);
+    });
 
   const longPress = Gesture.LongPress().minDuration(480).maxDistance(8).onStart((e) => { runOnJS(onLongPress)(e.x, e.y); });
 
@@ -446,7 +526,6 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
   const webHandlers = Platform.OS === 'web'
     ? {
         onWheel: (e: any) => {
-          e.preventDefault?.();
           const rect = e.currentTarget.getBoundingClientRect();
           const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
           const f = Math.exp(-e.deltaY * 0.0015);
@@ -468,10 +547,15 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
     fit,
     zoomBy,
     focus: (x, y) => focus(x, y),
-    exportPNG: (scale) => (terrain && sheet ? renderPlanPNG(terrain, sheet, buildDrawData(plan, occ), scale) : null),
-  }), [fit, zoomBy, focus, terrain, sheet, plan, occ]);
+    exportPNG: (scale) => (terrain && sheet ? renderPlanPNG(terrain, sheet, buildDrawData(plan, occ), scale, worldW, worldH, layers.night) : null),
+  }), [fit, zoomBy, focus, terrain, sheet, plan, occ, worldW, worldH, layers.night]);
 
-  const onLayout = (e: LayoutChangeEvent) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height });
+  const onLayout = (e: LayoutChangeEvent) => {
+    const next = { w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height };
+    // A fold/resize changes the coordinate system: never commit an old finger position.
+    if (next.w !== size.w || next.h !== size.h) onCancel();
+    setSize(next);
+  };
 
   // ---------------------------------------------------------------- preview shapes
   const rectPreview = useMemo(() => {
@@ -490,11 +574,16 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
     return { p: p.build(), color, stroke };
   }, [preview]);
 
-  const ghostOk = preview?.kind === 'ghost' ? preview.ok : preview?.kind === 'move' ? preview.ok : true;
-  const ghostFoot = useMemo(() => {
-    if (preview?.kind !== 'ghost') return null;
-    return Skia.XYWHRect(preview.x * TILE, preview.y * TILE, preview.item.w * TILE, preview.item.h * TILE);
-  }, [preview]);
+  const placementPaths = useMemo(() => {
+    const good = Skia.PathBuilder.Make(), bad = Skia.PathBuilder.Make();
+    const add = (cells: ReturnType<typeof placementCells>) => cells.forEach(c => (c.ok ? good : bad).addRect(Skia.XYWHRect(c.x * TILE, c.y * TILE, TILE, TILE)));
+    if (preview?.kind === 'ghost') add(preview.cells);
+    if (preview?.kind === 'rect' && preview.item && !preview.erase) {
+      for (const [x, y] of stampPositions(preview.item, preview.x0, preview.y0, preview.x1, preview.y1, preview.outline)) add(placementCells(plan, occ, preview.item, x, y, undefined, layers.anywhere));
+    }
+    if (preview?.kind === 'move') for (const o of plan.objects) if (selection.has(o.u)) add(placementCells(plan, occ, ITEM_BY_ID[o.id], o.x + preview.dx, o.y + preview.dy, selection, layers.anywhere));
+    return { good: good.build(), bad: bad.build() };
+  }, [preview, plan, occ, layers.anywhere, selection]);
 
   return (
     <GestureDetector gesture={gesture}>
@@ -503,22 +592,28 @@ export const FarmCanvas = forwardRef<FarmCanvasHandle, { onSelect?: (o: Placed |
           <Rect x={0} y={0} width={size.w} height={size.h} color="#1e120a" />
           <Group transform={transform}>
             {terrain && <SkiaImage image={terrain} x={0} y={0} width={worldW} height={worldH} sampling={NEAREST} />}
-            {blockedPath && <Path path={blockedPath} color="rgba(200,40,40,0.28)" />}
+            {buildablePath && <Path path={buildablePath} color="rgba(60,200,90,0.3)" />}
+            {tillablePath && <Path path={tillablePath} color="rgba(240,190,40,0.32)" />}
             {sheet && data && data.ground.sprites.length > 0 && <Atlas image={sheet} sprites={data.ground.sprites} transforms={data.ground.xf} sampling={NEAREST} />}
             {sheet && data && data.rugs.sprites.length > 0 && <Atlas image={sheet} sprites={data.rugs.sprites} transforms={data.rugs.xf} sampling={NEAREST} />}
             {coverPaths.map((c, i) => <Path key={i} path={c.p} color={c.color} />)}
             {focusRange && <Path path={focusRange.p} color={focusRange.color} />}
-            <Path path={gridPath} color="rgba(30,15,5,1)" style="stroke" strokeWidth={0} opacity={layers.grid ? gridOpacity : 0} />
+            <Path path={gridPath} color="rgba(30,15,5,1)" style="stroke" strokeWidth={0} opacity={preview ? 0.5 : layers.grid ? gridOpacity : 0} />
             {sheet && data && data.objects.sprites.length > 0 && <Atlas image={sheet} sprites={data.objects.sprites} transforms={data.objects.xf} sampling={NEAREST} />}
+            {layers.wildlife && map.kind === 'farm' && !map.image && <Wildlife width={worldW} height={worldH} season={plan.season} />}
+            {lighting && <Picture picture={lighting} />}
             {warnPath && <Path path={warnPath} color="#e83a3a" style="stroke" strokeWidth={1.5} />}
             {selPath && <Path path={selPath} color={preview?.kind === 'move' && !preview.ok ? '#e83a3a' : '#f8b830'} style="stroke" strokeWidth={2} />}
-            {ghostFoot && <Rect rect={ghostFoot} color={ghostOk ? 'rgba(120,230,90,0.35)' : 'rgba(230,60,40,0.45)'} />}
+            <Path path={placementPaths.good} color="rgba(75,220,65,0.45)" />
+            <Path path={placementPaths.bad} color="rgba(245,55,40,0.55)" />
             {sheet && ghost.sprites.length > 0 && (
-              <Group opacity={0.75}>
+              <Group opacity={0.55}>
                 <Atlas image={sheet} sprites={ghost.sprites} transforms={ghost.xf} sampling={NEAREST} />
               </Group>
             )}
-            {rectPreview && (
+            <Path path={placementPaths.good} color="#216d25" style="stroke" strokeWidth={1} />
+            <Path path={placementPaths.bad} color="#b51b12" style="stroke" strokeWidth={1} />
+            {rectPreview && !(preview?.kind === 'rect' && preview.item && !preview.erase) && (
               <Group>
                 <Path path={rectPreview.p} color={rectPreview.color} />
                 <Path path={rectPreview.p} color={rectPreview.stroke} style="stroke" strokeWidth={1} />

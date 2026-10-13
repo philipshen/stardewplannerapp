@@ -5,6 +5,18 @@ import { key, Occ, Placed } from './model';
 
 const tileHash = (x: number, y: number) => ((x * 73856093) ^ (y * 19349663)) >>> 0;
 
+/** The reference planner draws four overlapping 15x20 tufts per grass tile.
+ * Keep its 0..9px jitter and three variants, but seed them so saves don't flicker.
+ */
+export function grassTufts(x: number, y: number) {
+  let seed = tileHash(x, y) ^ 0x9e3779b9;
+  const random = (n: number) => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return Math.floor((seed / 4294967296) * n);
+  };
+  return Array.from({ length: 4 }, () => ({ variant: random(3), dx: random(10), dy: random(10) }));
+}
+
 function fenceMask(o: Placed, occ: Occ) {
   let m = 0;
   const conn = (x: number, y: number) => {

@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect, useRef } from 'react';
+import React, { ReactNode, useEffect, useState } from 'react';
 import {
   Animated,
   Image,
@@ -17,6 +17,7 @@ import {
   TextStyle,
   View,
   ViewStyle,
+  useWindowDimensions,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Asset } from 'expo-asset';
@@ -24,11 +25,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, F, shadow } from '../theme';
 import { GLYPH_CELL, GLYPH_NAMES, GLYPH_SHEET, ICON_PAGE_SIZE, ICON_PAGES, WOOD_TEXTURE } from '../data/generated/assets';
 import { SPRITES } from '../data/items';
+import { sfx, unlockAudio } from '../audio';
+import { useT } from '../i18n';
 
 export type GlyphName = (typeof GLYPH_NAMES)[number];
 
 export function tap() {
   if (Platform.OS !== 'web') Haptics.selectionAsync().catch(() => {});
+  unlockAudio();
+  sfx('tap');
 }
 
 // ---------------------------------------------------------------- text
@@ -59,14 +64,16 @@ export function Panel({ children, style, inner, tone = 'parchment' }: { children
 }
 
 export function WoodBackground({ children, style }: { children?: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const insets = useSafeAreaInsets();
+  const safeSides = { paddingLeft: insets.left, paddingRight: insets.right };
   if (Platform.OS === 'web') {
     // react-native-web does not tile ImageBackground; use a CSS background instead.
     const uri = typeof WOOD_TEXTURE === 'string' ? WOOD_TEXTURE : Asset.fromModule(WOOD_TEXTURE).uri;
     const css = { backgroundImage: `url(${uri})`, backgroundRepeat: 'repeat', imageRendering: 'pixelated' } as object;
-    return <View style={[{ flex: 1, backgroundColor: C.wood }, css, style]}>{children}</View>;
+    return <View style={[{ flex: 1, backgroundColor: C.wood }, css, safeSides, style]}>{children}</View>;
   }
   return (
-    <ImageBackground source={WOOD_TEXTURE} resizeMode="repeat" style={[{ flex: 1, backgroundColor: C.wood }, style]}>
+    <ImageBackground source={WOOD_TEXTURE} resizeMode="repeat" style={[{ flex: 1, backgroundColor: C.wood }, safeSides, style]}>
       {children}
     </ImageBackground>
   );
@@ -116,15 +123,16 @@ const TONES: Record<BtnTone, [string, string, string, string]> = {
 };
 
 export function PixelButton({
-  label, onPress, tone = 'parchment', glyph, icon, style, small, disabled, active, accessibilityLabel, children, onLongPress,
+  label, onPress, tone = 'parchment', glyph, icon, style, small, disabled, active, accessibilityLabel, children, onLongPress, radio,
 }: {
   label?: string; onPress?: () => void; tone?: BtnTone; glyph?: GlyphName; icon?: string; style?: StyleProp<ViewStyle>;
-  small?: boolean; disabled?: boolean; active?: boolean; accessibilityLabel?: string; children?: ReactNode; onLongPress?: () => void;
+  small?: boolean; disabled?: boolean; active?: boolean; radio?: boolean; accessibilityLabel?: string; children?: ReactNode; onLongPress?: () => void;
 }) {
   const t = TONES[active ? 'orange' : tone];
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole={radio ? "radio" : "button"}
+      accessibilityState={radio ? { checked: !!active, disabled } : { selected: active, disabled }}
       accessibilityLabel={accessibilityLabel ?? label}
       disabled={disabled}
       onPress={() => { tap(); onPress?.(); }}
@@ -165,6 +173,7 @@ export function Chip({ label, active, onPress, icon }: { label: string; active?:
 }
 
 export function SearchField(props: TextInputProps & { onClear?: () => void }) {
+  const t = useT();
   return (
     <View style={styles.search}>
       <Glyph name="search" size={20} />
@@ -177,7 +186,7 @@ export function SearchField(props: TextInputProps & { onClear?: () => void }) {
         style={[styles.searchInput, props.style]}
       />
       {props.value ? (
-        <Pressable onPress={props.onClear} hitSlop={10} accessibilityLabel="Clear search">
+        <Pressable onPress={props.onClear} hitSlop={10} accessibilityLabel={t('common.clearSearch')}>
           <Glyph name="close" size={16} />
         </Pressable>
       ) : null}
@@ -192,46 +201,56 @@ export function TextField(props: TextInputProps) {
 // ---------------------------------------------------------------- sheets & dialogs
 export function Sheet({ visible, onClose, title, children, height = '72%', scroll = true, right }: { visible: boolean; onClose: () => void; title?: string; children?: ReactNode; height?: `${number}%` | number; scroll?: boolean; right?: ReactNode }) {
   const insets = useSafeAreaInsets();
-  const anim = useRef(new Animated.Value(0)).current;
+  const { width } = useWindowDimensions();
+  const availableWidth = Math.max(1, width - insets.left - insets.right);
+  const sheetWidth = Math.min(760, availableWidth);
+  const t = useT();
+  const [anim] = useState(() => new Animated.Value(0));
   useEffect(() => {
     if (visible) Animated.spring(anim, { toValue: 1, useNativeDriver: Platform.OS !== 'web', damping: 18, stiffness: 180 }).start();
     else anim.setValue(0);
   }, [visible, anim]);
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent supportedOrientations={['portrait', 'portrait-upside-down', 'landscape-left', 'landscape-right']}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
+        <View pointerEvents="box-none" style={{ flex: 1, justifyContent: 'flex-end', paddingTop: insets.top + 8, paddingLeft: insets.left, paddingRight: insets.right }}>
         <Animated.View
           style={[
             styles.sheet,
+            { width: sheetWidth },
             { height, paddingBottom: insets.bottom + 8, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [600, 0] }) }] },
           ]}
         >
           <View style={styles.sheetHandle} />
           {title ? (
             <View style={styles.sheetHeader}>
-              <PText size={22} weight="bold">{title}</PText>
+              <PText size={22} weight="bold" style={{ flex: 1, marginRight: 8 }} numberOfLines={2}>{title}</PText>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 {right}
-                <IconButton glyph="close" label="Close" onPress={onClose} size={40} />
+                <IconButton glyph="close" label={t('common.close')} onPress={onClose} size={40} />
               </View>
             </View>
           ) : null}
           {scroll ? <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 4 }} keyboardShouldPersistTaps="handled">{children}</ScrollView> : <View style={{ flex: 1 }}>{children}</View>}
         </Animated.View>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 export function Dialog({ visible, onClose, title, children }: { visible: boolean; onClose: () => void; title: string; children?: ReactNode }) {
+  const insets = useSafeAreaInsets();
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.dialogWrap}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent supportedOrientations={['portrait', 'portrait-upside-down', 'landscape-left', 'landscape-right']}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.dialogWrap, { paddingLeft: insets.left + 20, paddingRight: insets.right + 20, paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <Panel style={styles.dialog} inner={{ padding: 18 }}>
+        <Panel style={[styles.dialog, { maxHeight: '100%' }]} inner={{ padding: 18, flexShrink: 1 }}>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1 }} style={{ flexGrow: 0 }}>
           <PText size={22} weight="bold" style={{ marginBottom: 12, textAlign: 'center' }}>{title}</PText>
           {children}
+          </ScrollView>
         </Panel>
       </KeyboardAvoidingView>
     </Modal>
@@ -266,7 +285,7 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontFamily: F.medium, fontSize: 17, color: C.ink, paddingVertical: 8, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) },
   textField: { borderWidth: 3, borderColor: C.outline, backgroundColor: C.parchmentLight, borderRadius: 6, paddingHorizontal: 12, minHeight: 48, fontFamily: F.medium, fontSize: 18, color: C.ink },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: C.overlay },
-  sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: C.parchment, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderWidth: 3, borderBottomWidth: 0, borderColor: C.outline, overflow: 'hidden', maxWidth: 760, alignSelf: 'center', width: '100%' },
+  sheet: { backgroundColor: C.parchment, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderWidth: 3, borderBottomWidth: 0, borderColor: C.outline, overflow: 'hidden', maxWidth: 760, alignSelf: 'center', width: '100%' },
   sheetHandle: { alignSelf: 'center', width: 54, height: 6, borderRadius: 3, backgroundColor: C.parchmentShadow, marginTop: 8 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8 },
   dialogWrap: { flex: 1, backgroundColor: C.overlay, alignItems: 'center', justifyContent: 'center', padding: 20 },

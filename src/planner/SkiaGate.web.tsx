@@ -5,11 +5,11 @@ import { C } from '../theme';
 import { PText } from '../components/ui';
 
 /** Web: load CanvasKit (served from /canvaskit.wasm) before rendering Skia components. */
-export function SkiaGate({ id }: { id: string }) {
+export function SkiaGate({ id, sample = false }: { id: string; sample?: boolean }) {
   return (
     <WithSkiaWeb
       opts={{ locateFile: () => '/canvaskit.wasm' }}
-      getComponent={() => import('./PlannerScreen')}
+      getComponent={() => sample ? import('./SampleScreen') : import('./PlannerScreen')}
       componentProps={{ id }}
       fallback={
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.wood }}>

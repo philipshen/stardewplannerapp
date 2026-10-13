@@ -183,7 +183,7 @@ export class Img {
   save(file: string) {
     const png = new PNG({ width: this.w, height: this.h });
     png.data = Buffer.from(this.data.buffer);
-    fs.writeFileSync(file, PNG.sync.write(png, { colorType: 6 }));
+    fs.writeFileSync(file, PNG.sync.write(png, { colorType: 6, deflateLevel: 9, deflateStrategy: 0 }));
   }
 }
 

@@ -1,0 +1,92 @@
+{
+  "drum-block": {
+    "file": "drum-block.png",
+    "source": "https://stardewvalleywiki.com/File:Drum_Block.png",
+    "scale": 3
+  },
+  "flute-block": {
+    "file": "flute-block.png",
+    "source": "https://stardewvalleywiki.com/File:Flute_Block.png",
+    "scale": 3
+  },
+  "jack-o-lantern": {
+    "file": "jack-o-lantern.png",
+    "source": "https://stardewvalleywiki.com/File:Jack-O-Lantern.png",
+    "scale": 3
+  },
+  "rarecrow-1": {
+    "file": "rarecrow-1.png",
+    "source": "https://stardewvalleywiki.com/File:Rarecrow_1.png",
+    "scale": 3
+  },
+  "rarecrow-2": {
+    "file": "rarecrow-2.png",
+    "source": "https://stardewvalleywiki.com/File:Rarecrow_2.png",
+    "scale": 3
+  },
+  "rarecrow-3": {
+    "file": "rarecrow-3.png",
+    "source": "https://stardewvalleywiki.com/File:Rarecrow_3.png",
+    "scale": 3
+  },
+  "rarecrow-4": {
+    "file": "rarecrow-4.png",
+    "source": "https://stardewvalleywiki.com/File:Rarecrow_4.png",
+    "scale": 3
+  },
+  "rarecrow-5": {
+    "file": "rarecrow-5.png",
+    "source": "https://stardewvalleywiki.com/File:Rarecrow_5.png",
+    "scale": 3
+  },
+  "rarecrow-6": {
+    "file": "rarecrow-6.png",
+    "source": "https://stardewvalleywiki.com/File:Rarecrow_6.png",
+    "scale": 3
+  },
+  "rarecrow-7": {
+    "file": "rarecrow-7.png",
+    "source": "https://stardewvalleywiki.com/File:Rarecrow_7.png",
+    "scale": 3
+  },
+  "rarecrow-8": {
+    "file": "rarecrow-8.png",
+    "source": "https://stardewvalleywiki.com/File:Rarecrow_8.png",
+    "scale": 3
+  },
+  "crop-giant-powdermelon": {
+    "file": "crop-giant-powdermelon.png",
+    "source": "https://stardewvalleywiki.com/File:Giant_Powdermelon.png",
+    "scale": 2
+  },
+  "crop-giant-qi-fruit": {
+    "file": "crop-giant-qi-fruit.png",
+    "source": "https://stardewvalleywiki.com/File:Giant_Qi_Fruit.png",
+    "scale": 2
+  },
+  "mannequin-female": {
+    "file": "mannequin-female.png",
+    "source": "https://stardewvalleywiki.com/File:Mannequin_%28F%29.png",
+    "scale": 3
+  },
+  "mannequin-male": {
+    "file": "mannequin-male.png",
+    "source": "https://stardewvalleywiki.com/File:Mannequin_%28M%29.png",
+    "scale": 3
+  },
+  "j-sign": {
+    "file": "j-sign.png",
+    "source": "https://stardewvalleywiki.com/File:J_%28sign%29.png",
+    "scale": 3
+  },
+  "tree-palm-tree": {
+    "file": "tree-palm-tree.png",
+    "source": "https://stardewvalleywiki.com/File:Palm_tree_portrait.png",
+    "scale": 3
+  },
+  "animal-catalogue": {
+    "file": "animal-catalogue.png",
+    "source": "stardew-valley-data/images/special-items/Animal Catalogue.png",
+    "scale": 3
+  }
+}

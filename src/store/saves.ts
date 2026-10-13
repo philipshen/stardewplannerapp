@@ -1,8 +1,12 @@
 /** Local persistence for named saves (no backend). */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { newPlan, Plan, uid, validatePlan } from '../planner/model';
+import { TEMPLATES } from '../data/templates';
+import { newPlan, Plan, planFromTemplate, uid, validatePlan } from '../planner/model';
 import type { Season } from '../theme';
+import { MAP_BY_ID, validateLayout } from '../data/maps';
+import { useLayouts } from './layouts';
+import { layoutImageForExport, layoutImageFromImport } from '../lib/files';
 
 export type SaveMeta = {
   id: string;
@@ -17,7 +21,7 @@ export type SaveMeta = {
 
 const INDEX_KEY = 'sdp:index:v1';
 const planKey = (id: string) => `sdp:plan:v1:${id}`;
-const thumbKey = (id: string) => `sdp:thumb:v1:${id}`;
+const thumbKey = (id: string) => `sdp:thumb:v2:${id}`;
 
 type SavesState = {
   loaded: boolean;
@@ -31,6 +35,8 @@ type SavesState = {
   duplicate: (id: string) => Promise<SaveMeta | null>;
   remove: (id: string) => Promise<void>;
   importPlan: (data: unknown) => Promise<Plan | null>;
+  /** Makes a new farm from a sample farm. */
+  createFromTemplate: (index: number, name: string) => Promise<Plan | null>;
 };
 
 const metaOf = (p: Plan, thumb?: string): SaveMeta => ({
@@ -47,6 +53,7 @@ export const useSaves = create<SavesState>((set, get) => ({
   loaded: false,
   saves: [],
   async load() {
+    await useLayouts.getState().load();
     try {
       const raw = await AsyncStorage.getItem(INDEX_KEY);
       const list: SaveMeta[] = raw ? JSON.parse(raw) : [];
@@ -110,7 +117,17 @@ export const useSaves = create<SavesState>((set, get) => ({
     set({ saves });
     await persistIndex(saves);
   },
+  async createFromTemplate(index, name) {
+    const t = TEMPLATES[index];
+    if (!t || !MAP_BY_ID[t.map]) return null;
+    const plan = planFromTemplate(t, name.trim().slice(0, 60) || t.name);
+    await get().write(plan);
+    return plan;
+  },
   async importPlan(data) {
+    // Plan files that use a custom layout carry the layout with them.
+    const layout = validateLayout((data as any)?.layout);
+    if (layout) await useLayouts.getState().add({ ...layout, image: await layoutImageFromImport(layout.image) });
     const plan = validatePlan(data);
     if (!plan) return null;
     plan.id = uid();
@@ -118,3 +135,9 @@ export const useSaves = create<SavesState>((set, get) => ({
     return plan;
   },
 }));
+
+/** A plan as a portable file: custom layouts are embedded. */
+export async function exportable(plan: Plan) {
+  const m = MAP_BY_ID[plan.map];
+  return m?.image ? { ...plan, layout: { id: m.id, name: m.name, w: m.w, h: m.h, image: await layoutImageForExport(m.image) } } : plan;
+}
