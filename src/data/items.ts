@@ -5,6 +5,7 @@ export type Place = 'object' | 'ground' | 'building' | 'wall' | 'water' | 'crop'
 
 export type Item = {
   id: string;
+  legacy?: boolean;
   name: string;
   cat: string;
   sub: string;
@@ -25,10 +26,13 @@ export type Item = {
   trellis?: boolean;
   tall?: number;
   tags?: string[];
+  gid?: string;
+  sid?: string;
 };
 
-export const ITEMS = rawItems as unknown as Item[];
-export const ITEM_BY_ID: Record<string, Item> = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
+const ALL_ITEMS = rawItems as unknown as Item[];
+export const ITEMS = ALL_ITEMS.filter((i) => !i.legacy);
+export const ITEM_BY_ID: Record<string, Item> = Object.fromEntries(ALL_ITEMS.map((i) => [i.id, i]));
 const BY_NAME: Record<string, Item> = {};
 for (const it of ITEMS) if (!BY_NAME[it.name.toLowerCase()]) BY_NAME[it.name.toLowerCase()] = it;
 export const itemByName = (n: string) => BY_NAME[n.toLowerCase()];
@@ -56,6 +60,7 @@ export const PLACE_CATEGORIES: CategoryMeta[] = [
   { id: 'lighting', label: 'Lighting', icon: 'iron-lamp-post', placeable: true },
   { id: 'decor', label: 'Decor', icon: 'rarecrow-3', placeable: true },
   { id: 'furniture', label: 'Furniture', icon: 'red-armchair', placeable: true },
+  { id: 'nature', label: 'Rocks & Debris', icon: 'large-rock', placeable: true },
   { id: 'fishing', label: 'Water', icon: 'crab-pot', placeable: true },
 ];
 
@@ -91,6 +96,47 @@ export function categoryIcon(c: CategoryMeta) {
 }
 
 export const PLACEABLE = ITEMS.filter((i) => !!i.place);
+
+// ---------------------------------------------------------------- planner menus
+/** The planner's top-level menus. They match the web planner: Crops, Craftables, Buildings, Misc (+ Furniture). */
+export type MenuId = 'crops' | 'craftables' | 'buildings' | 'misc' | 'furniture';
+export const MENUS: { id: MenuId; label: string; icon: string }[] = [
+  { id: 'crops', label: 'Crops', icon: 'crop-parsnip' },
+  { id: 'craftables', label: 'Craftables', icon: 'keg' },
+  { id: 'buildings', label: 'Buildings', icon: 'barn' },
+  { id: 'misc', label: 'Misc', icon: 'tree-oak-tree' },
+  { id: 'furniture', label: 'Furniture', icon: 'red-armchair' },
+];
+const MISC_CATS = new Set(['trees', 'fences', 'flooring', 'nature', 'fishing']);
+
+export function menuOf(it: Item): MenuId {
+  if (it.cat === 'crops' || it.cat === 'buildings' || it.cat === 'furniture') return it.cat;
+  return MISC_CATS.has(it.cat) ? 'misc' : 'craftables';
+}
+
+const BY_MENU: Record<MenuId, Item[]> = { crops: [], craftables: [], buildings: [], misc: [], furniture: [] };
+for (const it of PLACEABLE) BY_MENU[menuOf(it)].push(it);
+export const itemsInMenu = (m: MenuId) => BY_MENU[m];
+
+/** Filter chips under a menu: seasons for crops, the item group for the others. */
+export function menuFilters(m: MenuId): string[] {
+  if (m === 'crops') return ['Spring', 'Summer', 'Fall', 'Winter'];
+  const seen = new Set<string>();
+  for (const it of BY_MENU[m]) seen.add(filterOf(it, m));
+  return [...seen];
+}
+
+export function filterOf(it: Item, m: MenuId): string {
+  if (m === 'craftables' || m === 'misc') return CATEGORY_BY_ID[it.cat]?.label ?? it.sub;
+  return it.sub;
+}
+
+export function menuItems(m: MenuId, filter: string | null): Item[] {
+  const all = BY_MENU[m];
+  if (!filter) return all;
+  if (m === 'crops') return all.filter((i) => !i.seasons || i.seasons.includes(filter.toLowerCase()));
+  return all.filter((i) => filterOf(i, m) === filter);
+}
 
 export function itemsIn(cat: string) {
   return ITEMS.filter((i) => i.cat === cat);

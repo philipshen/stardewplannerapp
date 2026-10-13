@@ -87,7 +87,7 @@ export const FURNITURE: SupplementalGroup[] = [
   },
   {
     cat: 'furniture', sub: 'Fish Tanks', kind: 'fishtank', w: 2, h: 1, place: 'object',
-    items: ['Small Fish Tank|2|1', 'Large Fish Tank|4|2', 'Aquatic Sanctuary|4|2'],
+    items: ['Small Fish Tank|2|1', 'Large Fish Tank|4|2', 'Aquatic Sanctuary|7|2'],
   },
   {
     cat: 'furniture', sub: 'Televisions', kind: 'tv', w: 2, h: 1, place: 'object',
@@ -103,10 +103,10 @@ export const FURNITURE: SupplementalGroup[] = [
   {
     cat: 'furniture', sub: 'Rugs', kind: 'rug', w: 3, h: 2, place: 'ground',
     items: [
-      'Red Rug|3|2', 'Burlap Rug|2|2', 'Nautical Rug|3|2', 'Starry Moon Rug|3|3', 'Light Green Rug|3|2',
-      'Large Red Rug|5|4', 'Large Green Rug|5|4', 'Large Cottage Rug|5|4', 'Icy Rug|3|2', 'Fruit Salad Rug|3|2',
-      'Mystic Rug|3|2', 'Old World Rug|3|2', 'Blossom Rug|3|2', 'Monster Rug|3|2', 'Oceanic Rug|3|2',
-      'Modern Rug|3|2', 'Funky Rug|3|2', 'Swirl Rug|3|2', 'Circular Rug|2|2', 'Bamboo Mat|2|2',
+      'Red Rug|3|2', 'Burlap Rug|2|2', 'Nautical Rug|3|2', 'Starry Moon Rug|5|3', 'Light Green Rug|3|2',
+      'Large Red Rug|4|3', 'Large Green Rug|4|3', 'Large Cottage Rug|4|3', 'Icy Rug|4|3', 'Fruit Salad Rug|3|2',
+      'Mystic Rug|3|2', 'Old World Rug|4|3', 'Blossom Rug|6|4', 'Monster Rug|2|2', 'Oceanic Rug|3|2',
+      'Modern Rug|5|4', 'Funky Rug|5|4', 'Swirl Rug|3|2', 'Circular Rug|2|2', 'Bamboo Mat|2|1',
     ],
   },
   {
@@ -162,7 +162,7 @@ export const EXTRA_PLACEABLES: SupplementalGroup[] = [
   {
     cat: 'machines', sub: 'Machines', kind: 'machine', w: 1, h: 1, place: 'object',
     items: ['Wood Chipper', 'Deconstructor', 'Coffee Maker', 'Statue of Perfection', 'Statue of True Perfection',
-      'Statue of Endless Fortune', 'Auto-Petter', 'Heater', 'Workbench|2|1', 'Telephone', 'Soda Machine'],
+      'Statue of Endless Fortune', 'Auto-Petter', 'Heater', 'Workbench|1|1', 'Telephone', 'Soda Machine'],
   },
   {
     cat: 'decor', sub: 'Statues & Oddities', kind: 'statue', w: 1, h: 1, place: 'object',
@@ -183,7 +183,10 @@ export const GROUND_TILES = [
 ];
 
 /** Building footprints in tiles (w x h) and extra visual height above the footprint. */
+import { EXTRA_BUILDINGS } from './supplemental-extra';
+
 export const BUILDING_SIZES: Record<string, { w: number; h: number; tall: number; roof: string; wall: string }> = {
+  ...EXTRA_BUILDINGS,
   'Coop': { w: 6, h: 3, tall: 3, roof: '#b4472b', wall: '#c98d4c' },
   'Big Coop': { w: 6, h: 3, tall: 3, roof: '#8b3a2a', wall: '#d9a35f' },
   'Deluxe Coop': { w: 6, h: 3, tall: 3, roof: '#5d3a7a', wall: '#e1b673' },
@@ -197,7 +200,7 @@ export const BUILDING_SIZES: Record<string, { w: number; h: number; tall: number
   'Big Shed': { w: 7, h: 3, tall: 3, roof: '#4e5f73', wall: '#c09460' },
   'Fish Pond': { w: 5, h: 5, tall: 0, roof: '#3d8ad6', wall: '#8e8e8e' },
   'Stable': { w: 4, h: 2, tall: 3, roof: '#3e6b3a', wall: '#a8783f' },
-  'Slime Hutch': { w: 11, h: 6, tall: 3, roof: '#5a7a8a', wall: '#7c8c96' },
+  'Slime Hutch': { w: 7, h: 4, tall: 3, roof: '#5a7a8a', wall: '#7c8c96' },
   'Cabin': { w: 5, h: 3, tall: 3, roof: '#7a3f2a', wall: '#a4784a' },
   'Pet Bowl': { w: 2, h: 2, tall: 0, roof: '#8aa0b8', wall: '#b0c4d8' },
   'Shipping Bin': { w: 2, h: 1, tall: 1, roof: '#6b4422', wall: '#9b6a3a' },
@@ -216,6 +219,9 @@ export const RANGES: Record<string, string> = {
   'Sprinkler': 'spr1',
   'Quality Sprinkler': 'spr2',
   'Iridium Sprinkler': 'spr3',
+  'Sprinkler (P)': 'spr2',
+  'Quality Sprinkler (P)': 'spr3',
+  'Iridium Sprinkler (P)': 'spr4',
   'Scarecrow': 'scare8',
   'Deluxe Scarecrow': 'scare16',
   'Rarecrow 1': 'scare8', 'Rarecrow 2': 'scare8', 'Rarecrow 3': 'scare8', 'Rarecrow 4': 'scare8',

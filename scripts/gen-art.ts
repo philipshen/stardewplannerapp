@@ -1,5 +1,5 @@
 /**
- * Generates all app artwork procedurally (no game assets are used):
+ * Builds game sprite atlases and app interface artwork:
  *  - assets/gen/icons-N.png   UI icon pages (24px art upscaled 2x)
  *  - assets/gen/world-N.png   world sprite sheets (1x, 16px per tile)
  *  - assets/gen/maps/*.png    farm & interior terrain per season
@@ -10,12 +10,16 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { PNG } from 'pngjs';
 import { fitInto, hex, Img, ramp, Rng } from './art/png';
 import { accentColor, baseColor } from './art/palette';
-import { Ctx, paintBuilding, PAINTERS, RISE, Season } from './art/painters';
-import { CODE_CHARS, MAPS, renderMap } from './art/maps';
+import { Ctx, paintBuilding, paintBuildingArt, PAINTERS, RISE, Season } from './art/painters';
+import { cabin, CODE_CHARS, LAYOUT_PRESETS, MAPS, renderMap, slimeHutch } from './art/maps';
 import { BUILDING_SIZES } from './supplemental';
 import { GLYPHS } from './art/glyphs';
+import { gameSprite } from './art/game';
+import { gameIcon } from './art/game-icons';
+import { buildGameMaps } from './art/game-maps';
 
 const ROOT = path.join(__dirname, '..');
 const GEN = path.join(ROOT, 'assets', 'gen');
@@ -23,11 +27,13 @@ const OUTDATA = path.join(ROOT, 'src', 'data', 'generated');
 fs.mkdirSync(path.join(GEN, 'maps'), { recursive: true });
 
 type Item = { id: string; name: string; cat: string; sub: string; kind: string; w: number; h: number; place: string | null; tall?: number };
+// Preserve the checked-in game terrain by default. Procedural terrain is an explicit developer opt-in.
+const spritesOnly = !process.argv.includes('--procedural-art');
 const items: Item[] = JSON.parse(fs.readFileSync(path.join(OUTDATA, 'items.json'), 'utf8'));
 
 const SEASONS: Season[] = ['spring', 'summer', 'fall', 'winter'];
-const ICON = 24;
-const ICON_SCALE = 2;
+const ICON = 48;
+const ICON_SCALE = 1;
 const CELL = ICON * ICON_SCALE;
 const PAGE_COLS = 21;
 const PER_PAGE = PAGE_COLS * PAGE_COLS;
@@ -49,59 +55,37 @@ function paint(img: Img, it: Item, x: number, y: number, w: number, h: number, c
   p(img, x, y, w, h, c);
 }
 
-// ------------------------------------------------------------------ icons
-function iconFor(it: Item): Img {
-  const img = new Img(ICON, ICON);
-  const c = ctxFor(it, 'icon', 'summer');
-  if (it.place && it.kind !== 'tree' && it.kind !== 'fruittree' && (it.w > 1 || it.h > 1 || it.kind === 'building')) {
-    // Keep the footprint's aspect ratio inside the icon.
-    const tall = it.kind === 'building' ? (it.tall ?? 2) : (RISE[it.kind] ?? 0) / 16;
-    const aw = it.w, ah = it.h + tall;
-    const s = Math.min((ICON - 2) / aw, (ICON - 2) / ah);
-    const w = Math.max(6, Math.round(aw * s)), h = Math.max(6, Math.round(ah * s));
-    paint(img, it, Math.floor((ICON - w) / 2), Math.floor((ICON - h) / 2), w, h, c);
-  } else if (it.kind === 'tree' || it.kind === 'fruittree') {
-    paint(img, it, 1, 0, ICON - 2, ICON, c);
-  } else if (it.kind === 'floor' || it.kind === 'path' || ['tilled', 'watered', 'grassplant', 'bluegrass'].includes(it.kind)) {
-    const tile = new Img(16, 16);
-    paint(tile, it, 0, 0, 16, 16, c);
-    // 2x2 tile swatch with a frame
-    const sw = new Img(ICON, ICON);
-    for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) sw.blit(fitInto(tile, 10, 10), 2 + i * 10, 2 + j * 10);
-    sw.outline(hex('#2a1a1e'));
-    return sw;
-  } else {
-    paint(img, it, 2, 2, ICON - 4, ICON - 4, c);
-  }
-  return img;
-}
-
-const iconIndex: Record<string, [number, number, number]> = {};
-const pages: Img[] = [];
-items.forEach((it, i) => {
-  const page = Math.floor(i / PER_PAGE), k = i % PER_PAGE;
-  if (!pages[page]) pages[page] = new Img(PAGE_COLS * CELL, PAGE_COLS * CELL);
-  const col = k % PAGE_COLS, row = Math.floor(k / PAGE_COLS);
-  pages[page].blitScaled(iconFor(it), col * CELL, row * CELL, ICON_SCALE);
-  iconIndex[it.id] = [page, col, row];
-});
-pages.forEach((p, i) => p.saveQuantized(path.join(GEN, `icons-${i}.png`)));
-console.log(`icons: ${items.length} in ${pages.length} pages`);
-
 // ------------------------------------------------------------------ world sprites
 type Sprite = { key: string; img: Img; ox: number; oy: number };
 const sprites: Sprite[] = [];
 const T = 16;
+/** The default world sprite of each placeable item. Its icon is made from it. */
+const worldArt = new Map<string, Img>();
 
 for (const it of items) {
-  if (!it.place) continue;
+  // Retain a renderable icon for plans made before Animal Catalogue was corrected to a book.
+  if (!it.place && it.id !== 'animal-catalogue') continue;
+  const actual = gameSprite(it);
+  if (actual) {
+    worldArt.set(it.id, actual.img);
+    if (it.kind === 'building' || it.kind === 'tree' || it.kind === 'fruittree') {
+      for (const season of SEASONS) sprites.push({ key: `${it.id}@${season}`, ...gameSprite(it, season)! });
+    } else if (it.kind === 'fence') {
+      for (let mask = 0; mask < 16; mask++) sprites.push({ key: `${it.id}#${mask}`, ...gameSprite(it, 'spring', 0, mask)! });
+    } else if (it.place === 'ground' && it.cat !== 'furniture') {
+      const seasons = ['grassplant', 'bluegrass'].includes(it.kind) ? SEASONS : ['spring'];
+      for (const season of seasons) for (let v = 0; v < 4; v++) sprites.push({ key: `${it.id}${seasons.length > 1 ? '@' + season : ''}#${v}`, ...gameSprite(it, season, v)! });
+    } else sprites.push({ key: it.id, ...actual });
+    continue;
+  }
   if (it.kind === 'building') {
     const spec = BUILDING_SIZES[it.name] ?? { w: it.w, h: it.h, tall: 2, roof: '#8a4a2a', wall: '#c9a06a' };
     for (const season of ['spring', 'winter'] as Season[]) {
       const W = it.w * T, H = (it.h + spec.tall) * T;
       const img = new Img(W, H);
-      paintBuilding(img, 0, 0, W, H, it.name, spec, new Rng(it.id), season);
+      if (!paintBuildingArt(img, 0, 0, W, H, it.name, spec, season)) paintBuilding(img, 0, 0, W, H, it.name, spec, new Rng(it.id), season);
       sprites.push({ key: `${it.id}@${season}`, img, ox: 0, oy: -spec.tall * T });
+      if (season === 'spring') worldArt.set(it.id, img);
     }
     continue;
   }
@@ -112,6 +96,7 @@ for (const it of items) {
       const img = new Img(W, H);
       paint(img, it, 0, 0, W, H, ctxFor(it, 'world', season));
       sprites.push({ key: `${it.id}@${season}`, img, ox: -T, oy: -(H - T) });
+      if (season === 'summer') worldArt.set(it.id, img);
     }
     continue;
   }
@@ -121,6 +106,7 @@ for (const it of items) {
       const img = new Img(T, T + rise);
       paint(img, it, 0, 0, T, T + rise, ctxFor(it, 'world', 'spring', { mask: m }));
       sprites.push({ key: `${it.id}#${m}`, img, ox: 0, oy: -rise });
+      if (m === 10) worldArt.set(it.id, img);
     }
     continue;
   }
@@ -138,7 +124,52 @@ for (const it of items) {
   const img = new Img(W, H);
   paint(img, it, 0, 0, W, H, ctxFor(it, 'world'));
   sprites.push({ key: it.id, img, ox: 0, oy: -rise });
+  worldArt.set(it.id, img);
 }
+
+// ------------------------------------------------------------------ icons
+function iconFor(it: Item): Img {
+  const img = new Img(ICON, ICON);
+  const art = it.place ? worldArt.get(it.id) ?? gameSprite(it)?.img : gameIcon(it.name) ?? gameSprite(it)?.img;
+  if (art) {
+    // Placeable items: the icon is the world sprite, at real size when it fits.
+    const b = art.bounds();
+    if (!b) return img;
+    const crop = new Img(b.w, b.h);
+    crop.blit(art, 0, 0, b.x, b.y, b.w, b.h);
+    // Small sprites are enlarged by a whole number, so pixels stay crisp. Large ones are scaled down to fit.
+    const up = Math.floor((ICON - 2) / Math.max(b.w, b.h));
+    if (up >= 1) img.blitScaled(crop, Math.floor((ICON - b.w * up) / 2), Math.floor((ICON - b.h * up) / 2), up);
+    else { const fit = fitInto(crop, ICON, ICON); img.blit(fit, Math.floor((ICON - fit.w) / 2), Math.floor((ICON - fit.h) / 2)); }
+    return img;
+  }
+  const c = ctxFor(it, 'icon', 'summer');
+  if (it.kind === 'floor' || it.kind === 'path' || ['tilled', 'watered', 'grassplant', 'bluegrass'].includes(it.kind)) {
+    // 3x3 tile swatch.
+    for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
+      const tile = new Img(16, 16);
+      paint(tile, it, 0, 0, 16, 16, ctxFor(it, 'world', 'summer', { variant: (i + j * 3) % 4 }));
+      img.blit(tile, i * 16, j * 16);
+    }
+    img.outline(hex('#2a1a1e'));
+    return img;
+  }
+  paint(img, it, 4, 4, ICON - 8, ICON - 8, c);
+  return img;
+}
+
+const iconIndex: Record<string, [number, number, number]> = {};
+const pages: Img[] = [];
+items.forEach((it, i) => {
+  const page = Math.floor(i / PER_PAGE), k = i % PER_PAGE;
+  if (!pages[page]) pages[page] = new Img(PAGE_COLS * CELL, PAGE_COLS * CELL);
+  const col = k % PAGE_COLS, row = Math.floor(k / PAGE_COLS);
+  pages[page].blitScaled(iconFor(it), col * CELL, row * CELL, ICON_SCALE);
+  iconIndex[it.id] = [page, col, row];
+});
+// The combined atlas has more than 256 colors. Quantizing it recolors game art.
+pages.forEach((p, i) => p.save(path.join(GEN, `icons-${i}.png`)));
+console.log(`icons: ${items.length} in ${pages.length} pages`);
 
 // Shelf-pack sprites into 2048-wide sheets.
 const SHEET = 2048;
@@ -161,16 +192,42 @@ for (const l of layout) {
   sheets[l.sheet].blit(l.s.img, l.x, l.y);
   world[l.s.key] = [l.sheet, l.x, l.y, l.s.img.w, l.s.img.h, l.s.ox, l.s.oy];
 }
-sheets.forEach((s, i) => s.saveQuantized(path.join(GEN, `world-${i}.png`)));
+sheets.forEach((s, i) => s.save(path.join(GEN, `world-${i}.png`)));
 console.log(`world sprites: ${sprites.length} in ${sheets.length} sheets`);
 
 function nextPow2(n: number) { let p = 64; while (p < n) p *= 2; return p; }
 
 // ------------------------------------------------------------------ maps
-const mapsOut: any[] = [];
+const GLYPH_NAMES = Object.keys(GLYPHS);
+const GS = 12, GSCALE = 4;
+const mapsOut: any[] = spritesOnly ? JSON.parse(fs.readFileSync(path.join(OUTDATA, 'maps.json'), 'utf8')) : [];
+if (spritesOnly) {
+  for (const def of [cabin(), slimeHutch()]) {
+  Object.assign(mapsOut.find(m => m.id === def.id), {
+    blurb: def.blurb,
+    defaults: def.defaults,
+    grid: Array.from(def.grid, c => CODE_CHARS[c]).join(''),
+    flags: Array.from(def.flags!, String).join(''),
+  });
+  }
+  buildGameMaps(mapsOut);
+}
+// Use Robin's original smiling portrait, enlarged on an integer pixel grid.
+// Do not send the portrait through a generative or palette-reduction step.
+{
+  const portrait = PNG.sync.read(fs.readFileSync(path.join(ROOT, 'assets/game/robin-happy.png')));
+  const robin = new Img(portrait.width, portrait.height);
+  robin.data.set(portrait.data);
+  const icon = new Img(1024, 1024);
+  icon.rect(0, 0, 1024, 1024, hex('#ffdda3'));
+  icon.blitScaled(robin, 0, 0, 1024 / portrait.width);
+  icon.save(path.join(ROOT, 'assets/robin-icon.png'));
+}
+if (!spritesOnly) {
 for (const make of MAPS) {
   const def = make();
-  const seasons = def.kind === 'farm' ? SEASONS : (['spring'] as Season[]);
+  // Community layouts ship one season to keep the app small.
+  const seasons = def.kind === 'farm' && !def.author ? SEASONS : (['spring'] as Season[]);
   for (const season of seasons) renderMap(def, season).saveQuantized(path.join(GEN, 'maps', `${def.id}-${season}.png`));
   // Small preview thumbnail (4px per tile -> quarter-size).
   const full = renderMap(def, 'spring');
@@ -180,6 +237,8 @@ for (const make of MAPS) {
     grid: Array.from(def.grid, (c) => CODE_CHARS[c]).join(''),
     defaults: def.defaults,
     seasons,
+    ...(def.flags ? { flags: Array.from(def.flags, (f) => String(f)).join('') } : {}),
+    ...(def.author ? { author: def.author } : {}),
   });
   console.log(`map ${def.id} ${def.w}x${def.h}`);
 }
@@ -225,8 +284,6 @@ appArt(512, false).save(path.join(ROOT, 'assets', 'splash-icon.png'));
 appArt(64, true).save(path.join(ROOT, 'assets', 'favicon.png'));
 
 // ------------------------------------------------------------------ UI glyphs & textures
-const GLYPH_NAMES = Object.keys(GLYPHS);
-const GS = 12, GSCALE = 4;
 {
   const sheet = new Img(GLYPH_NAMES.length * GS * GSCALE, GS * GSCALE);
   GLYPH_NAMES.forEach((name, gi) => {
@@ -261,12 +318,14 @@ const GS = 12, GSCALE = 4;
   gbig.saveQuantized(path.join(GEN, 'grass.png'));
 }
 
+}
+
 // ------------------------------------------------------------------ data outputs
 fs.writeFileSync(path.join(OUTDATA, 'sprites.json'), JSON.stringify({ cell: CELL, cols: PAGE_COLS, icons: iconIndex, world }));
 fs.writeFileSync(path.join(OUTDATA, 'maps.json'), JSON.stringify(mapsOut));
+fs.writeFileSync(path.join(OUTDATA, 'layoutPresets.json'), JSON.stringify(LAYOUT_PRESETS));
 const rel = (p: string) => '../../../assets/gen/' + p;
 const lines = [
-  '/* eslint-disable */',
   '// AUTO-GENERATED by scripts/gen-art.ts — do not edit.',
   `export const ICON_PAGES = [${pages.map((_, i) => `require('${rel(`icons-${i}.png`)}')`).join(', ')}];`,
   `export const WORLD_SHEETS = [${sheets.map((_, i) => `require('${rel(`world-${i}.png`)}')`).join(', ')}];`,

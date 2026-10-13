@@ -1,0 +1,12 @@
+{
+  "source": "https://stardewmapeditor.kya.app.br/stardew-vanilla/",
+  "reference": "https://stardewvalleywiki.com/Slime_Hutch",
+  "retrieved": "2026-10-12",
+  "rendering": "16px tiles; Back, Back2, Buildings, Front; Paths is game metadata, not visible art. Original 18x14 map padded to legacy 20x15 canvas without rescaling.",
+  "files": {
+    "SlimeHutch.tmx": "9b5b43b78e3fe969f7d5c73f4b8342d442bc0ec7c5f750652aa475a72341b73d",
+    "townInterior.png": "d440a649cdc3b82d1329884e258fcff628ca91e9d98220d033d677011883dc05",
+    "townInterior_2.png": "3658405dc29361ef7c3615e4d8a1136c6977df96c627b7321cdaae092628389b",
+    "walls_and_floors.png": "cc0bfdfbeb4dd9fffdd4f7365457e350abcc7dcbbca946a65f6ad78106a664ae"
+  }
+}

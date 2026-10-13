@@ -1,6 +1,6 @@
 /** Pure planner model: plan data, placement rules, coverage and stats. */
 import { Item, ITEM_BY_ID, itemByName } from '../data/items';
-import { MAP_BY_ID, MapInfo, terrainAt } from '../data/maps';
+import { flagsAt, MAP_BY_ID, MapInfo, terrainAt } from '../data/maps';
 import type { Season } from '../theme';
 
 export type Placed = { u: string; id: string; x: number; y: number };
@@ -40,6 +40,18 @@ export function newPlan(name: string, mapId: string, season: Season): Plan {
   };
 }
 
+/** A sample farm that ships with the app. */
+export type Template = { source?: { author: string; url: string }; name: string; blurb: string; map: string; season: Season; ground: Record<string, string>; objects: Placed[] };
+
+export function planFromTemplate(t: Template, name: string): Plan {
+  const now = Date.now();
+  return {
+    v: 1, id: uid(), name, map: t.map, season: t.season, createdAt: now, updatedAt: now,
+    ground: { ...t.ground },
+    objects: t.objects.filter((o) => ITEM_BY_ID[o.id]).map((o) => ({ ...o, u: uid() })),
+  };
+}
+
 // ---------------------------------------------------------------- terrain rules
 const OUTDOOR = 'gdsh';
 const INDOOR = 'fSt';
@@ -54,11 +66,19 @@ const RULES: Record<string, string> = {
   water: 'wD',
 };
 
+/** Tiles where buildings may stand / where crops may grow (for the area overlays). */
+export const tileBuildable = (map: MapInfo, x: number, y: number) => !!map.image || (map.flags ? (flagsAt(map, x, y) & 2) !== 0 : RULES.building.includes(terrainAt(map, x, y)));
+export const tileTillable = (map: MapInfo, x: number, y: number) => !!map.image || (map.flags ? (flagsAt(map, x, y) & 4) !== 0 : RULES.crop.includes(terrainAt(map, x, y)));
+
 export function terrainOk(it: Item, map: MapInfo, x: number, y: number) {
+  if (map.image) return true; // custom layouts have no terrain data
   const place = it.place === 'ground' && it.cat === 'furniture' ? 'rug' : (it.place ?? 'object');
   const ok = RULES[place] ?? RULES.object;
+  // Maps with rule data use the same three layers as the web planner: buildings need a buildable tile,
+  // crops a tillable tile, everything else a walkable tile. Wall and water items still use the terrain.
+  const bit = !map.flags || place === 'wall' || place === 'water' ? 0 : place === 'building' ? 2 : place === 'crop' ? 4 : 1;
   for (let j = 0; j < it.h; j++) for (let i = 0; i < it.w; i++) {
-    if (!ok.includes(terrainAt(map, x + i, y + j))) return false;
+    if (bit ? !(flagsAt(map, x + i, y + j) & bit) : !ok.includes(terrainAt(map, x + i, y + j))) return false;
   }
   return true;
 }
@@ -79,11 +99,22 @@ export function buildOcc(objects: Placed[]): Occ {
 
 export type PlaceCheck = { ok: true } | { ok: false; reason: string };
 
-export function canPlace(plan: Plan, occ: Occ, it: Item, x: number, y: number, ignore?: Set<string>): PlaceCheck {
+/** Validate each footprint square with the same rules used to commit placement. */
+export function placementCells(plan: Pick<Plan, 'map' | 'ground'>, occ: Occ, it: Item, x: number, y: number, ignore?: Set<string>, anywhere = false) {
+  const tileItem = { ...it, w: 1, h: 1 };
+  const cells: { x: number; y: number; ok: boolean }[] = [];
+  for (let j = 0; j < it.h; j++) for (let i = 0; i < it.w; i++) {
+    cells.push({ x: x + i, y: y + j, ok: canPlace(plan, occ, tileItem, x + i, y + j, ignore, anywhere).ok });
+  }
+  return cells;
+}
+
+/** `anywhere` skips the terrain rules (the "Allow placing anywhere" option). */
+export function canPlace(plan: Pick<Plan, 'map' | 'ground'>, occ: Occ, it: Item, x: number, y: number, ignore?: Set<string>, anywhere = false): PlaceCheck {
   const map = MAP_BY_ID[plan.map];
   if (!map) return { ok: false, reason: 'Unknown map' };
   if (x < 0 || y < 0 || x + it.w > map.w || y + it.h > map.h) return { ok: false, reason: 'Outside the map' };
-  if (!terrainOk(it, map, x, y)) {
+  if (!anywhere && !terrainOk(it, map, x, y)) {
     if (it.place === 'wall') return { ok: false, reason: 'Wall decor goes on interior walls' };
     if (it.place === 'water') return { ok: false, reason: 'Must be placed in water' };
     if (it.place === 'building' && map.kind === 'interior') return { ok: false, reason: 'Buildings go on the farm' };
@@ -102,7 +133,7 @@ export function canPlace(plan: Plan, occ: Occ, it: Item, x: number, y: number, i
     if (o && !ignore?.has(o.u)) return { ok: false, reason: `${ITEM_BY_ID[o.id]?.name ?? 'Something'} is in the way` };
     if (it.place === 'crop') {
       const g = plan.ground[key(x + i, y + j)];
-      if (g && !/^(tilled-soil|watered-soil)$/.test(g)) return { ok: false, reason: 'Remove the flooring first' };
+      if (g && !anywhere && !/^(tilled-soil|watered-soil)$/.test(g)) return { ok: false, reason: 'Remove the flooring first' };
     }
   }
   return { ok: true };
@@ -110,6 +141,22 @@ export function canPlace(plan: Plan, occ: Occ, it: Item, x: number, y: number, i
 
 // ---------------------------------------------------------------- edits (immutable)
 export type Edit = { ground: Record<string, string>; objects: Placed[] };
+
+/** Newly placed, moved and copied crops all need soil across their full footprint. */
+export function soilForCrops(ground: Record<string, string>, objects: Placed[]): Record<string, string> {
+  let result = ground;
+  for (const o of objects) {
+    const it = ITEM_BY_ID[o.id];
+    if (it?.place !== 'crop') continue;
+    for (let j = 0; j < it.h; j++) for (let i = 0; i < it.w; i++) {
+      const k = key(o.x + i, o.y + j);
+      if (result[k]) continue;
+      if (result === ground) result = { ...ground };
+      result[k] = 'tilled-soil';
+    }
+  }
+  return result;
+}
 
 export function placeItem(plan: Edit & { map: string }, occ: Occ, it: Item, x: number, y: number): Edit | null {
   const layer = layerOf(it);
@@ -120,8 +167,7 @@ export function placeItem(plan: Edit & { map: string }, occ: Occ, it: Item, x: n
   }
   const o: Placed = { u: uid(), id: it.id, x, y };
   const objects = [...plan.objects, o];
-  let ground = plan.ground;
-  if (it.place === 'crop' && !ground[key(x, y)]) ground = { ...ground, [key(x, y)]: 'tilled-soil' };
+  const ground = soilForCrops(plan.ground, [o]);
   for (let j = 0; j < it.h; j++) for (let i = 0; i < it.w; i++) occ[layer === 'rug' ? 'rug' : 'obj'].set(key(x + i, y + j), o);
   return { ground, objects };
 }
@@ -199,12 +245,13 @@ export function lineTiles(x0: number, y0: number, x1: number, y1: number): [numb
 }
 
 // ---------------------------------------------------------------- coverage
-export type RangeKind = 'spr1' | 'spr2' | 'spr3' | 'scare8' | 'scare16' | 'junimo' | 'bee' | 'log';
+export type RangeKind = 'spr1' | 'spr2' | 'spr3' | 'spr4' | 'scare8' | 'scare16' | 'junimo' | 'bee' | 'log';
 
 export const RANGE_STYLE: Record<RangeKind, { color: string; label: string; group: 'water' | 'crow' | 'junimo' | 'bee' | 'log' }> = {
   spr1: { color: 'rgba(70,150,255,0.38)', label: 'Sprinkler', group: 'water' },
   spr2: { color: 'rgba(70,150,255,0.38)', label: 'Quality Sprinkler', group: 'water' },
   spr3: { color: 'rgba(70,150,255,0.38)', label: 'Iridium Sprinkler', group: 'water' },
+  spr4: { color: 'rgba(70,150,255,0.38)', label: 'Iridium Sprinkler + Nozzle', group: 'water' },
   scare8: { color: 'rgba(255,190,60,0.26)', label: 'Scarecrow', group: 'crow' },
   scare16: { color: 'rgba(255,190,60,0.26)', label: 'Deluxe Scarecrow', group: 'crow' },
   junimo: { color: 'rgba(120,220,90,0.24)', label: 'Junimo Hut', group: 'junimo' },
@@ -222,11 +269,13 @@ export function rangeOffsets(r: RangeKind): [number, number][] {
     case 'spr1': return [[0, -1], [1, 0], [0, 1], [-1, 0]];
     case 'spr2': sq(1); return out;
     case 'spr3': sq(2); return out;
+    case 'spr4': sq(3); return out;
     case 'scare8':
     case 'scare16': {
       const rad = r === 'scare8' ? 8 : 16;
-      // Game uses a circle; tiles within (radius + 0.5) of the center.
-      for (let y = -rad; y <= rad; y++) for (let x = -rad; x <= rad; x++) if (x * x + y * y <= (rad + 0.5) * (rad + 0.5) - 0.25 && !(x === 0 && y === 0)) out.push([x, y]);
+      // Wiki: a circle of 249 tiles with the scarecrow (888 around a Deluxe Scarecrow), which is every tile
+      // closer than radius + 1 to the center: 8 tiles in a straight line and 6 on the diagonal.
+      for (let y = -rad; y <= rad; y++) for (let x = -rad; x <= rad; x++) if (x * x + y * y < (rad + 1) * (rad + 1) && !(x === 0 && y === 0)) out.push([x, y]);
       return out;
     }
     case 'junimo': sq(8, 1, 1, false); return out;
@@ -312,6 +361,23 @@ export function computeStats(plan: Pick<Plan, 'ground' | 'objects'>): Stats {
     tiles: Object.keys(plan.ground).length,
     crops, cropsWatered, cropsProtected, bySeason,
   };
+}
+
+// ---------------------------------------------------------------- layout change
+/** Moves a plan to another layout. Keeps everything that is still inside the new map. */
+export function fitToMap(plan: Pick<Plan, 'ground' | 'objects'>, mapId: string): Edit {
+  const map = MAP_BY_ID[mapId];
+  if (!map) return { ground: plan.ground, objects: plan.objects };
+  const objects = plan.objects.filter((o) => {
+    const it = ITEM_BY_ID[o.id];
+    return it && o.x >= 0 && o.y >= 0 && o.x + it.w <= map.w && o.y + it.h <= map.h;
+  });
+  const ground: Record<string, string> = {};
+  for (const [k, v] of Object.entries(plan.ground)) {
+    const [x, y] = k.split(',').map(Number);
+    if (x >= 0 && y >= 0 && x < map.w && y < map.h) ground[k] = v;
+  }
+  return { ground, objects };
 }
 
 // ---------------------------------------------------------------- serialization

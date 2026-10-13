@@ -5,7 +5,7 @@
     "scheme": "stardewplanner",
     "version": "1.0.0",
     "orientation": "default",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/robin-icon.png",
     "userInterfaceStyle": "light",
     "backgroundColor": "#6b3d22",
     "ios": {
@@ -23,7 +23,11 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -37,16 +41,31 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-icon.png",
+          "image": "./assets/robin-icon.png",
           "imageWidth": 220,
           "resizeMode": "contain",
           "backgroundColor": "#6b3d22"
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6529ac8d-7c42-4b01-8aee-29a75686face"
+      }
+    },
+    "owner": "shenberg"
   }
 }

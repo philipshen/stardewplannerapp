@@ -527,6 +527,7 @@ const sprinkler: Painter = (img, x, y, w, h, c) => {
   img.outline(OUT, x, y, w, h);
   img.px(cx - 3, cy - h * 0.35, hex('#8ad0f8'));
   img.px(cx + 3, cy - h * 0.32, hex('#8ad0f8'));
+  if (/\(P\)/.test(c.name)) { img.rect(cx - 2, cy - h * 0.42, 4, 2, hex('#e0782a')); img.px(cx - 4, cy - h * 0.2, hex('#8ad0f8')); img.px(cx + 4, cy - h * 0.18, hex('#8ad0f8')); }
 };
 
 const scarecrow: Painter = (img, x, y, w, h, c) => {
@@ -819,7 +820,7 @@ const crop: Painter = (img, x, y, w, h, c) => {
   img.blob(cx - 3, y + h * 0.55, 3, 2, leaf);
   img.blob(cx + 3, y + h * 0.5, 3, 2, leaf);
   img.blob(cx, y + h * 0.4, 3, 2.5, leaf);
-  const flower = /tulip|jazz|poppy|spangle|rose|flower/i.test(c.name);
+  const flower = /tulip|jazz|poppy|spangle|rose|flower|sweet pea|crocus/i.test(c.name);
   if (flower) { img.blob(cx, y + h * 0.22, 3, 3, prod); img.px(cx, y + h * 0.22, hex('#f8f0a0')); }
   else for (let i = 0; i < 3; i++) img.blob(cx - 3 + i * 3, y + h * 0.45 + (i % 2) * 2, 1.7, 1.7, prod);
 };
@@ -840,6 +841,7 @@ const tree: Painter = (img, x, y, w, h, c) => {
   if (/maple/i.test(n)) leaf = c.season === 'fall' ? ramp('#d8482a') : c.season === 'winter' ? ramp('#8a6a5a') : ramp('#5aa83a');
   if (/mahogany/i.test(n)) leaf = c.season === 'winter' ? ramp('#5a6a4a') : ramp('#3a7a3a');
   if (isMystic) leaf = ramp('#8a5ad6');
+  if (/green rain/i.test(n)) leaf = ramp(/1/.test(n) ? '#2f8a5a' : /2/.test(n) ? '#3a9a4a' : '#4a8a2a');
   if (isMush) leaf = ramp('#c84a3a');
   if (c.season === 'winter' && c.kind === 'fruittree') leaf = ramp('#7a6a5a');
   if (isPine) {
@@ -1344,7 +1346,57 @@ const simpleObj = (shape: 'bag' | 'book' | 'star' | 'potion' | 'bomb' | 'totem' 
   }
 };
 
+/** 3x3 giant crops: one big round fruit on a bed of leaves. */
+const giantcrop: Painter = (img, x, y, w, h, c) => {
+  const prod = ramp(c.base), leaf = ramp('#4aa83a');
+  const cx = x + w / 2, cy = y + h * 0.52;
+  img.ellipse(cx, y + h * 0.86, w * 0.42, h * 0.1, SHADOW);
+  for (let a = 0; a < 6; a++) img.blob(cx + Math.cos(a * 1.05) * w * 0.34, y + h * 0.78 + Math.sin(a * 1.05) * h * 0.08, w * 0.14, h * 0.08, leaf);
+  img.blob(cx, cy, w * 0.4, h * 0.36, prod);
+  if (/pumpkin|melon/i.test(c.name)) for (let i = -2; i <= 2; i++) if (i) img.line(cx + i * w * 0.09, cy - h * 0.3, cx + i * w * 0.13, cy + h * 0.3, prod[1]);
+  if (/cauliflower/i.test(c.name)) for (let i = 0; i < 9; i++) img.blob(cx - w * 0.22 + c.rng.int(Math.max(1, Math.floor(w * 0.44))), cy - h * 0.2 + c.rng.int(Math.max(1, Math.floor(h * 0.3))), w * 0.07, h * 0.06, ramp('#fbfbf0'));
+  img.rect(cx - 1, cy - h * 0.42, Math.max(2, w * 0.05), h * 0.1, hex('#4a8a2a'));
+  img.outline(OUT, x, y, w, h);
+};
+
+/** Natural debris: boulders, stumps, logs, meteorite, small stones, twigs, weeds, truffle. */
+const debris: Painter = (img, x, y, w, h, c) => {
+  const n = c.name, cx = x + w / 2, by = y + h - 2;
+  img.ellipse(cx, by, w * 0.4, Math.max(1.5, h * 0.08), SHADOW);
+  if (/stump/i.test(n)) {
+    const r = ramp('#8a5a32');
+    img.box(x + w * 0.2, y + h * 0.4, w * 0.6, h * 0.5, r[2], OUT);
+    img.ellipse(cx, y + h * 0.4, w * 0.3, h * 0.14, hex('#d8b07a'));
+    img.ellipse(cx, y + h * 0.4, w * 0.16, h * 0.07, hex('#b88a52'));
+    for (let i = 0; i < 3; i++) img.vline(Math.floor(x + w * (0.3 + i * 0.18)), Math.floor(y + h * 0.55), Math.floor(h * 0.3), r[1]);
+  } else if (/log/i.test(n)) {
+    const r = ramp('#7a5232');
+    img.box(x + w * 0.08, y + h * 0.45, w * 0.84, h * 0.38, r[2], OUT);
+    img.ellipse(x + w * 0.14, y + h * 0.64, w * 0.08, h * 0.17, hex('#d8b07a'));
+    for (let i = 1; i < 5; i++) img.hline(x + w * 0.25, y + h * (0.48 + i * 0.07), w * 0.6, r[i % 2 ? 1 : 3]);
+  } else if (/twig/i.test(n)) {
+    img.line(x + w * 0.2, y + h * 0.75, x + w * 0.8, y + h * 0.4, hex('#7a5232'));
+    img.line(x + w * 0.5, y + h * 0.57, x + w * 0.62, y + h * 0.8, hex('#7a5232'));
+    img.line(x + w * 0.45, y + h * 0.6, x + w * 0.35, y + h * 0.4, hex('#9a6a3a'));
+  } else if (/weeds/i.test(n)) {
+    const r = ramp(c.season === 'fall' ? '#b8922a' : c.season === 'winter' ? '#8aa8a0' : '#4a9a34');
+    for (let i = -2; i <= 2; i++) img.line(cx, by - 1, cx + i * w * 0.14, y + h * (0.3 + Math.abs(i) * 0.1), r[i % 2 ? 3 : 2]);
+  } else if (/truffle/i.test(n)) {
+    img.blob(cx, y + h * 0.62, w * 0.26, h * 0.22, ramp('#5a4030'));
+    img.px(cx - 1, y + h * 0.55, hex('#8a6a50')); img.px(cx + 2, y + h * 0.68, hex('#8a6a50'));
+    img.outline(OUT, x, y, w, h);
+  } else {
+    const r = ramp(/meteor/i.test(n) ? '#7a4ab8' : '#8a8a90');
+    img.blob(cx, y + h * 0.58, w * 0.4, h * 0.32, r);
+    img.blob(cx - w * 0.14, y + h * 0.44, w * 0.2, h * 0.16, r);
+    img.line(cx - w * 0.1, y + h * 0.5, cx + w * 0.12, y + h * 0.72, r[0]);
+    if (/meteor/i.test(n)) { img.px(cx + w * 0.15, y + h * 0.45, hex('#e8c8ff')); img.px(cx - w * 0.2, y + h * 0.66, hex('#e8c8ff')); }
+    img.outline(OUT, x, y, w, h);
+  }
+};
+
 export const PAINTERS: Record<string, Painter> = {
+  giantcrop, debris,
   chair, bench, couch, armchair, table, teatable, endtable, bookcase, lamp, bed, fireplace, fishtank, tv,
   houseplant, rug, painting, walldecor, decor, piano, catalogue, dresser,
   chest, machine, sprinkler, scarecrow, rarecrow: scarecrow, light, lamppost, brazier, torch, jackolantern,
@@ -1365,5 +1417,24 @@ export const RISE: Record<string, number> = {
   torch: 8, sign: 6, fence: 10, gate: 8, block: 2, flowertub: 4, gardenpot: 2, houseplant: 12, bookcase: 18,
   dresser: 10, fireplace: 14, tv: 10, couch: 8, armchair: 8, chair: 8, bench: 6, bed: 6, decor: 8, piano: 14,
   catalogue: 10, table: 4, teatable: 2, endtable: 6, fishtank: 10, crop: 8, teabush: 8, trellis: 14,
-  jackolantern: 2, sprinkler: 0, crabpot: 0, walldecor: 0, painting: 0,
+  jackolantern: 2, giantcrop: 8, debris: 2, sprinkler: 0, crabpot: 0, walldecor: 0, painting: 0,
 };
+
+// ---------------------------------------------------------------- hand-designed art (scripts/art/paint/*)
+// Each category module replaces painters by kind and may change the rise of a kind.
+// These painters draw world sprites at their real size; icons are made from the world sprite.
+import * as cropsArt from './paint/crops';
+import * as craftArt from './paint/craftables';
+import * as decorArt from './paint/decor';
+import * as furnitureArt from './paint/furniture';
+import * as buildingArt from './paint/buildings';
+
+/** Kinds whose painter is hand-designed for real-size world sprites. */
+export const NATIVE_KINDS = new Set<string>();
+for (const mod of [cropsArt, craftArt, decorArt, furnitureArt]) {
+  Object.assign(PAINTERS, mod.painters);
+  Object.assign(RISE, mod.rise);
+  for (const k of Object.keys(mod.painters)) NATIVE_KINDS.add(k);
+}
+/** Hand-designed building art; returns false for a building it does not draw. */
+export const paintBuildingArt = buildingArt.paintBuilding;

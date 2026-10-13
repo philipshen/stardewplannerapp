@@ -45,6 +45,8 @@ const WORD_COLORS: [RegExp, string][] = [
 
 /** Specific known item colors (produce, fish, gems). */
 const NAME_COLORS: Record<string, string> = {
+  'Giant Cauliflower': '#f0f0e0', 'Giant Melon': '#e86a7a', 'Giant Pumpkin': '#e8842a', 'Giant Powdermelon': '#e8d0f0', 'Giant Qi Fruit': '#5ad0e0',
+  'Sweet Pea': '#c86ae0', 'Crocus': '#8a6ae8', 'Spring Seeds': '#8ad05a', 'Summer Seeds': '#e8c03a', 'Fall Seeds': '#d0782a', 'Winter Seeds': '#8ac8e8',
   'Parsnip': '#efe0a0', 'Cauliflower': '#f0f0e0', 'Potato': '#c89a5a', 'Garlic': '#f0ecd8', 'Kale': '#3a8a4a',
   'Rhubarb': '#d04a6a', 'Tulip': '#e04a5a', 'Blue Jazz': '#5a8ae8', 'Carrot': '#f0882a', 'Coffee Bean': '#7a3a2a',
   'Coffee Plant': '#7a3a2a', 'Melon': '#e86a7a', 'Tomato': '#e03a2a', 'Blueberry': '#3a5ad0', 'Hot Pepper': '#e8302a',

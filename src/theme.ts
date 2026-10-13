@@ -41,10 +41,10 @@ export const shadow = Platform.select({
 });
 
 export const SEASON_META = {
-  spring: { label: 'Spring', color: '#5ab83a', icon: '🌸' },
-  summer: { label: 'Summer', color: '#e8b830', icon: '☀️' },
-  fall: { label: 'Fall', color: '#d0782a', icon: '🍂' },
-  winter: { label: 'Winter', color: '#6aa8d8', icon: '❄️' },
+  spring: { label: 'Spring', color: '#5ab83a' },
+  summer: { label: 'Summer', color: '#e8b830' },
+  fall: { label: 'Fall', color: '#d0782a' },
+  winter: { label: 'Winter', color: '#6aa8d8' },
 } as const;
 export type Season = keyof typeof SEASON_META;
 export const SEASONS: Season[] = ['spring', 'summer', 'fall', 'winter'];

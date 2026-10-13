@@ -1,0 +1,11 @@
+{
+  "asset": "critters.png",
+  "gameVersion": "1.6.15",
+  "source": "https://assets.stardewplan.com/assets/1.6.15/tilesheets/critters.webp?c=2",
+  "retrieved": "2026-10-13",
+  "conversion": "Lossless RGBA conversion from the observed game sprite sheet; no redraw or resampling.",
+  "frames": {
+    "butterflies": "16x16 cells, y=96, blue x=128..176, pink x=192..240, yellow x=256..304",
+    "blueBirdFlight": "32x32 cells, y=144, x=224,256,288"
+  }
+}

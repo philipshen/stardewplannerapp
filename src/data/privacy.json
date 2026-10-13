@@ -1,0 +1,12 @@
+{
+  "updated": "October 12, 2026",
+  "sections": [
+    {"title": "About this policy", "text": "Stardew Planner is a free farm-planning app made by Phil Shen. This policy explains how the mobile app handles your information."},
+    {"title": "Your information stays on your device", "text": "The app does not require an account and does not send your farm plans, imported files, or preferences to a server operated by Phil. It includes no advertising, analytics, or tracking SDKs. Farm plans, thumbnails, language preferences, and radio settings are stored locally."},
+    {"title": "Files you choose", "text": "When you import a farm plan, game save, layout image, or music file, the app reads the file you select using the system file picker. Imported plans are processed on your device. Layout images and music may be copied into the app’s local storage so they remain available later. The app does not record audio or access your contacts or location."},
+    {"title": "Exporting and sharing", "text": "When you export or share a plan or image, you choose where it goes through your device’s sharing controls. The receiving app or storage provider handles that copy under its own privacy policy. Device backups may also include app data according to your operating system and backup settings."},
+    {"title": "Retention and deletion", "text": "Saved plans and preferences remain on your device until you remove them or delete the app’s data. You can delete individual farms from the home screen and imported music from the radio menu. Uninstalling the app or clearing its storage removes its local data; backups and exported files must be removed separately from wherever you saved them."},
+    {"title": "External links and support", "text": "Opening Twitter or Buy Me a Coffee takes you to an external service governed by its own privacy policy. If you contact Phil, the service you use handles your message. For questions about this policy, contact @thicc__cheney on Twitter at https://x.com/thicc__cheney."},
+    {"title": "Changes", "text": "This policy will be updated if the app’s data handling changes. The date above identifies the current version."}
+  ]
+}

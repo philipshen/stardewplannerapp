@@ -1,0 +1,50 @@
+require 'fileutils'
+require 'shellwords'
+
+def eas(*args)
+  # The nested EAS build installs its own tools in an isolated temporary checkout.
+  Bundler.with_unbundled_env do
+    sh(['npx', '--yes', 'eas-cli@24.12.1', *args].shelljoin)
+  end
+end
+
+def with_release_lock
+  root = File.expand_path('..', __dir__)
+  FileUtils.mkdir_p(File.join(root, '.scratch', 'releases'))
+  File.open(File.join(root, '.scratch', 'releases', 'release.lock'), 'w') do |lock|
+    UI.user_error!('Another local iOS release is running.') unless lock.flock(File::LOCK_EX | File::LOCK_NB)
+    yield root
+  ensure
+    lock.flock(File::LOCK_UN) if lock
+  end
+end
+
+def check_cloud_jobs
+  # Keep the old remote release lane from overlapping this migration.
+  sh('bash scripts/check-ios-release-jobs.sh')
+end
+
+def build_and_submit(root)
+  artifact = File.join(root, '.scratch', 'releases', "stardew-#{Time.now.utc.strftime('%Y%m%d%H%M%S')}.ipa")
+  # Compilation runs on this Mac (including on GitHub's macOS runner). EAS only
+  # provides existing signing credentials and a unique remote build number.
+  eas('build', '--platform', 'ios', '--profile', 'production', '--local',
+      '--non-interactive', '--freeze-credentials', '--output', artifact)
+  UI.user_error!('The local build did not produce an IPA.') unless File.file?(artifact) && File.size(artifact) > 0
+  # Submit the exact artifact just built; never select a previous/latest cloud build.
+  eas('submit', '--platform', 'ios', '--profile', 'production', '--path', artifact,
+      '--non-interactive', '--wait', '--groups', 'Phil')
+end
+
+default_platform(:ios)
+platform :ios do
+  desc 'Build on the current Mac and submit the resulting IPA to TestFlight'
+  lane :beta do
+    with_release_lock do |root|
+      Dir.chdir(root) do
+        check_cloud_jobs
+        build_and_submit(root)
+      end
+    end
+  end
+end

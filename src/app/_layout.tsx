@@ -8,13 +8,16 @@ import { useFonts, PixelifySans_400Regular, PixelifySans_500Medium, PixelifySans
 import { VT323_400Regular } from '@expo-google-fonts/vt323';
 import { C } from '../theme';
 import { useSaves } from '../store/saves';
+import { useLang } from '../i18n';
+import { useEditor } from '../store/editor';
+import { useRadio } from '../audio';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({ PixelifySans_400Regular, PixelifySans_500Medium, PixelifySans_600SemiBold, PixelifySans_700Bold, VT323_400Regular });
   const load = useSaves((s) => s.load);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); useLang.getState().load(); useRadio.getState().load(); useEditor.getState().loadOptions(); }, [load]);
   const ready = fontsLoaded || !!fontError;
   useEffect(() => { if (ready) SplashScreen.hideAsync().catch(() => {}); }, [ready]);
   if (!ready) return null;

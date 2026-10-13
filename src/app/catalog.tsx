@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { SettingsButton } from '../components/SettingsButton';
+import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,7 +19,12 @@ export default function Catalog() {
   const { width } = useWindowDimensions();
   const cols = width > 1000 ? 3 : width > 640 ? 2 : 1;
 
-  useEffect(() => { if (params.item && ITEM_BY_ID[params.item]) setDetail(ITEM_BY_ID[params.item]); }, [params.item]);
+  // Open the item from the route when it changes (state adjusted during render, not in an effect).
+  const [seen, setSeen] = useState(params.item);
+  if (params.item !== seen) {
+    setSeen(params.item);
+    if (params.item && ITEM_BY_ID[params.item]) setDetail(ITEM_BY_ID[params.item]);
+  }
 
   const list = useMemo(() => {
     const pool = cat ? (it: Item) => it.cat === cat && (!sub || it.sub === sub) : undefined;
@@ -33,8 +39,9 @@ export default function Catalog() {
           <IconButton glyph="back" label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />
           <View style={{ flex: 1 }}>
             <PText size={26} weight="bold" color={C.parchmentLight} shadowed>Item Index</PText>
-            <PText size={13} color={C.parchmentDark}>{ITEMS.length.toLocaleString()} items · {list.length.toLocaleString()} shown</PText>
+
           </View>
+          <SettingsButton />
         </View>
         <SearchField value={q} onChangeText={setQ} onClear={() => setQ('')} placeholder="Search items, seasons, sources…" />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
