@@ -29,6 +29,14 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
+      - name: Install tools for isolated EAS build
+        # EAS runs outside Bundler, so vendor/bundle executables are unavailable.
+        # Install into the runner's managed Ruby as well as the orchestration bundle.
+        run: |
+          gem install fastlane --version 2.228.0 --no-document
+          gem install cocoapods --no-document
+          fastlane --version
+          pod --version
       - name: Select Xcode
         run: |
           sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
